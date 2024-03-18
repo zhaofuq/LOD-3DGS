@@ -134,10 +134,14 @@ class OctreeGaussianNode:
         self.nodeType = 2
         self.hierarchyByteOffset = 0
         self.hierarchyByteSize = 0
+        self.byteOffset = 0
+        self.byteSize = 0
+        self.spacing = 0
         self.OctreeGaussian = OctreeGaussian
         self.boundingbox = boundingbox
         self.boundingSphere = boundingbox.getBoundingSphere()
-        self.children = []
+        self.children = [None for _ in range(8)]
+        self.parent = None
         self.numGaussians = 0
         self.level = None
         self.loaded = False

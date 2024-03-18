@@ -5,7 +5,7 @@ import os
 import numpy as np
 import json
 
-from utils.graphics_utils import OctreeGaussianNode
+from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox
 
 potreeConst = {
     "pointBudget": 1 * 1000 * 1000,
@@ -109,6 +109,30 @@ typename_typeattribute_map = {
     "uint64": PointAttributeTypes.DATA_TYPE_UINT64,
 }
 
+tmpVec3 = Vector3()
+
+def createChildAABB(aabb: BoundingBox, index: int) -> BoundingBox:
+    minPoint = Vector3(aabb.min.x, aabb.min.y, aabb.min.z)
+    maxPoint = Vector3(aabb.max.x, aabb.max.y, aabb.max.z)
+    size = tmpVec3.subVectors(maxPoint, minPoint)
+
+    if (index & 0b0001) > 0:
+        minPoint.z += size.z / 2
+    else:
+        maxPoint.z -= size.z / 2
+
+    if (index & 0b0010) > 0:
+        minPoint.y += size.y / 2
+    else:
+        maxPoint.y -= size.y / 2
+
+    if (index & 0b0100) > 0:
+        minPoint.x += size.x / 2
+    else:
+        maxPoint.x -= size.x / 2
+
+    return BoundingBox(min_point=minPoint, max_point=maxPoint)
+
 def loadPotree(path, name):
     if not os.path.exists(path):
         return None
@@ -132,11 +156,69 @@ class nodeLoader():
         # load the hierarchy.bin from byte first to last
         hierarchyPath = self.path.replace("metadata.json", "hierarchy.bin")
         with open(hierarchyPath, "rb") as f:
+            # load from first to last, which is index of bytes
+            f.seek(first)
+            buffer = f.read(last - first + 1)
+        f.close()
+        self.parseHierarchy(node, buffer)
 
-
-    def parseHierarchy(self, node, buffer):
+    def parseHierarchy(self, node: OctreeGaussianNode, buffer):
         bytesPerNode = 22
-        numNodes = 
+        numNodes = len(buffer) / bytesPerNode
+
+        octree = node.OctreeGaussian
+        nodes = [None for i in range(numNodes)]
+        nodes[0] = node
+        nodePos = 1
+
+        for i in range(numNodes):
+            start = i * bytesPerNode
+            # uint8
+            type = buffer[start]
+            # uint8
+            childMask = buffer[start + 1]
+            # uint32
+            numPoints = int.from_bytes(buffer[start + 2:start + 6], byteorder='little', signed=False)
+            # bigint 64
+            byteOffset = int.from_bytes(buffer[start + 6:start + 14], byteorder='little', signed=True)
+            # bigint 64
+            byteSize = int.from_bytes(buffer[start + 14:start + 22], byteorder='little', signed=True)
+
+            if nodes[i].nodeType == 2:
+                nodes[i].byteOffset = byteOffset
+                nodes[i].byteSize = byteSize
+                nodes[i].numGaussians = numPoints
+            elif type == 2:
+                nodes[i].hierarchyByteOffset = byteOffset
+                nodes[i].hierarchyByteSize = byteSize
+            else:
+                nodes[i].byteOffset = byteOffset
+                nodes[i].byteSize = byteSize
+                nodes[i].numGaussians = numPoints
+
+            if nodes[i].byteSize == 0:
+                nodes[i].numGaussians = 0
+
+            nodes[i].nodeType = type
+
+            if nodes[i].nodeType == 2:
+                continue
+
+            for childIndex in range(8):
+                childExists = ((1 << childIndex) & childMask) != 0
+                if not childExists:
+                    continue
+
+                childName = nodes[i].name + str(childIndex)
+                childAABB = createChildAABB(nodes[i].boundingbox, childIndex)
+                child = OctreeGaussianNode(childName, octree, childAABB)
+                child.name = childName
+                child.spacing = nodes[i].spacing / 2
+                child.level = nodes[i].level + 1
+                child.parent = nodes[i]
+
+                nodes[i].children[childIndex] = child
+                nodePos += 1
 
     def load(self, node: OctreeGaussianNode) -> None:
 
@@ -147,7 +229,23 @@ class nodeLoader():
         potreeConst["numNodesLoading"] += 1
         
         if node.nodeType == 2:
-            self.loadHierarchy
+            self.loadHierarchy(node=node)
+
+        byteOffset = node.byteOffset
+        byteSize = node.byteSize
+
+        octreePath = self.path.replace("metadata.json", "octree.bin")
+
+        first = byteOffset
+        last = first + byteSize - 1
+
+        if byteSize == 0:
+            assert False, "[ Error ] byteSize is 0 in nodeLoader.load method"
+        else:
+            with open(octreePath, "rb") as f:
+                f.seek(first)
+                buffer = f.read(last - first + 1)
+            f.close()
 
 
 
