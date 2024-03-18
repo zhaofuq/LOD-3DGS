@@ -7,6 +7,3 @@
 [submodule "SIBR_viewers"]
 	path = SIBR_viewers
 	url = https://gitlab.inria.fr/sibr/sibr_core.git
-[submodule "PotreeConverter"]
-	path = PotreeConverter
-	url = https://github.com/zhaofuq/PotreeConverter.git
