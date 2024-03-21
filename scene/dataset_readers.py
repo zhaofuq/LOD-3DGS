@@ -424,11 +424,47 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
 
     print(potree.root.numGaussians)
     # print(potree.pointAttributes["position"]["buffer"])
-    print(potree.pointAttributes["position"]["buffer"])
+    print(potree.root.octreeGeometry.pointAttributes["position"]["buffer"])
 
-    print(potree.root.children[0].numGaussians)
-    print(potree.root.children[1].numGaussians)
+    print(len(potree.root.octreeGeometry.pointAttributes["position"]["buffer"]))
 
+    # print(potree.root.children[0].numGaussians)
+    # print(potree.root.children[1].numGaussians)
+
+    # name r01 04 05 06
+    # print(potree.root.children[0].children[5].children)
+
+    # test with construct ply from potree
+    def collect_position_buffers(node):
+        position_buffers = []
+
+        if hasattr(node, 'octreeGeometry') and "position" in node.octreeGeometry.pointAttributes:
+            position_buffer = node.octreeGeometry.pointAttributes["position"]["buffer"]
+            position_array = np.array(position_buffer, dtype=np.float32).reshape(-1, 3)  # 每三个数为一组，转换为二维数组
+            position_buffers.append(position_array)
+            # position_buffers.append(position_buffer)
+
+        if hasattr(node, 'children'):
+            for child in node.children:
+                if child is not None:
+                    position_buffers.extend(collect_position_buffers(child))
+
+        return position_buffers
+
+    # recursive read the potree
+    position_buffers = collect_position_buffers(potree.root)
+
+    all_positions = np.concatenate(position_buffers, axis=0)
+    print(all_positions.shape)
+
+    # rearrange buffer and dump to ply
+    output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\point_cloud_from_potree.ply"
+    vertices = np.array(
+        [(position[0], position[1], position[2]) for position in all_positions],
+        dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+    )
+    el = PlyElement.describe(vertices, 'vertex')
+    PlyData([el], text=True).write(output_path)
 
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
