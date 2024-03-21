@@ -5,7 +5,7 @@ import os
 import numpy as np
 import json
 
-from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox
+from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox, OctreeGeometry
 
 potreeConst = {
     "pointBudget": 1 * 1000 * 1000,
@@ -14,28 +14,27 @@ potreeConst = {
     "maxNodesLoading" : 4
 }
 
-class PointAttributeTypes:
-    DATA_TYPE_DOUBLE = {'ordinal': 0, 'name': "double", 'size': 8}
-    DATA_TYPE_FLOAT = {'ordinal': 1, 'name': "float", 'size': 4}
-    DATA_TYPE_INT8 = {'ordinal': 2, 'name': "int8", 'size': 1}
-    DATA_TYPE_UINT8 = {'ordinal': 3, 'name': "uint8", 'size': 1}
-    DATA_TYPE_INT16 = {'ordinal': 4, 'name': "int16", 'size': 2}
-    DATA_TYPE_UINT16 = {'ordinal': 5, 'name': "uint16", 'size': 2}
-    DATA_TYPE_INT32 = {'ordinal': 6, 'name': "int32", 'size': 4}
-    DATA_TYPE_UINT32 = {'ordinal': 7, 'name': "uint32", 'size': 4}
-    DATA_TYPE_INT64 = {'ordinal': 8, 'name': "int64", 'size': 8}
-    DATA_TYPE_UINT64 = {'ordinal': 9, 'name': "uint64", 'size': 8}
+PointAttributeTypesTmp = {
+    "DATA_TYPE_DOUBLE": {"ordinal": 0, "name": "double", "size": 8},
+    "DATA_TYPE_FLOAT":  {"ordinal": 1, "name": "float",  "size": 4},
+    "DATA_TYPE_INT8":   {"ordinal": 2, "name": "int8",   "size": 1},
+    "DATA_TYPE_UINT8":  {"ordinal": 3, "name": "uint8",  "size": 1},
+    "DATA_TYPE_INT16":  {"ordinal": 4, "name": "int16",  "size": 2},
+    "DATA_TYPE_UINT16": {"ordinal": 5, "name": "uint16", "size": 2},
+    "DATA_TYPE_INT32":  {"ordinal": 6, "name": "int32",  "size": 4},
+    "DATA_TYPE_UINT32": {"ordinal": 7, "name": "uint32", "size": 4},
+    "DATA_TYPE_INT64":  {"ordinal": 8, "name": "int64",  "size": 8},
+    "DATA_TYPE_UINT64": {"ordinal": 9, "name": "uint64", "size": 8}
+}
 
-    @classmethod
-    def as_list(cls):
-        return [value for key, value in cls.__dict__.items() if not key.startswith("__") and not callable(value)]
+PointAttributeTypes = PointAttributeTypesTmp.copy()
 
-    @classmethod
-    def add_dynamic_attributes(cls):
-        for i, attr in enumerate(cls.as_list()):
-            setattr(cls, str(i), attr)
+i = 0
+for obj in PointAttributeTypesTmp:
+    PointAttributeTypes[str(i)] = PointAttributeTypesTmp[obj]
+    i += 1
 
-PointAttributeTypes.add_dynamic_attributes()
+# print(PointAttributeTypes)
 
 class PointAttribute:
     def __init__(self, name, type, numElements):
@@ -47,22 +46,35 @@ class PointAttribute:
         self.range = [float('inf'), float('-inf')]
 
 # Defining the static attributes for the PointAttribute class
-PointAttribute.POSITION_CARTESIAN = PointAttribute("POSITION_CARTESIAN", PointAttributeTypes.DATA_TYPE_FLOAT, 3)
-PointAttribute.RGBA_PACKED = PointAttribute("COLOR_PACKED", PointAttributeTypes.DATA_TYPE_INT8, 4)
+PointAttribute.POSITION_CARTESIAN = PointAttribute("POSITION_CARTESIAN", PointAttributeTypes["DATA_TYPE_FLOAT"], 3)
+PointAttribute.RGBA_PACKED = PointAttribute("COLOR_PACKED", PointAttributeTypes["DATA_TYPE_INT8"], 4)
 PointAttribute.COLOR_PACKED = PointAttribute.RGBA_PACKED
-PointAttribute.RGB_PACKED = PointAttribute("COLOR_PACKED", PointAttributeTypes.DATA_TYPE_INT8, 3)
-PointAttribute.NORMAL_FLOATS = PointAttribute("NORMAL_FLOATS", PointAttributeTypes.DATA_TYPE_FLOAT, 3)
-PointAttribute.INTENSITY = PointAttribute("INTENSITY", PointAttributeTypes.DATA_TYPE_UINT16, 1)
-PointAttribute.CLASSIFICATION = PointAttribute("CLASSIFICATION", PointAttributeTypes.DATA_TYPE_UINT8, 1)
-PointAttribute.NORMAL_SPHEREMAPPED = PointAttribute("NORMAL_SPHEREMAPPED", PointAttributeTypes.DATA_TYPE_UINT8, 2)
-PointAttribute.NORMAL_OCT16 = PointAttribute("NORMAL_OCT16", PointAttributeTypes.DATA_TYPE_UINT8, 2)
-PointAttribute.NORMAL = PointAttribute("NORMAL", PointAttributeTypes.DATA_TYPE_FLOAT, 3)
-PointAttribute.RETURN_NUMBER = PointAttribute("RETURN_NUMBER", PointAttributeTypes.DATA_TYPE_UINT8, 1)
-PointAttribute.NUMBER_OF_RETURNS = PointAttribute("NUMBER_OF_RETURNS", PointAttributeTypes.DATA_TYPE_UINT8, 1)
-PointAttribute.SOURCE_ID = PointAttribute("SOURCE_ID", PointAttributeTypes.DATA_TYPE_UINT16, 1)
-PointAttribute.INDICES = PointAttribute("INDICES", PointAttributeTypes.DATA_TYPE_UINT32, 1)
-PointAttribute.SPACING = PointAttribute("SPACING", PointAttributeTypes.DATA_TYPE_FLOAT, 1)
-PointAttribute.GPS_TIME = PointAttribute("GPS_TIME", PointAttributeTypes.DATA_TYPE_DOUBLE, 1)
+PointAttribute.RGB_PACKED = PointAttribute("COLOR_PACKED", PointAttributeTypes["DATA_TYPE_INT8"], 3)
+PointAttribute.NORMAL_FLOATS = PointAttribute("NORMAL_FLOATS", PointAttributeTypes["DATA_TYPE_FLOAT"], 3)
+PointAttribute.INTENSITY = PointAttribute("INTENSITY", PointAttributeTypes["DATA_TYPE_UINT16"], 1)
+PointAttribute.CLASSIFICATION = PointAttribute("CLASSIFICATION", PointAttributeTypes["DATA_TYPE_UINT8"], 1)
+PointAttribute.NORMAL_SPHEREMAPPED = PointAttribute("NORMAL_SPHEREMAPPED", PointAttributeTypes["DATA_TYPE_UINT8"], 2)
+PointAttribute.NORMAL_OCT16 = PointAttribute("NORMAL_OCT16", PointAttributeTypes["DATA_TYPE_UINT8"], 2)
+PointAttribute.NORMAL = PointAttribute("NORMAL", PointAttributeTypes["DATA_TYPE_FLOAT"], 3)
+PointAttribute.RETURN_NUMBER = PointAttribute("RETURN_NUMBER", PointAttributeTypes["DATA_TYPE_UINT8"], 1)
+PointAttribute.NUMBER_OF_RETURNS = PointAttribute("NUMBER_OF_RETURNS", PointAttributeTypes["DATA_TYPE_UINT8"], 1)
+PointAttribute.SOURCE_ID = PointAttribute("SOURCE_ID", PointAttributeTypes["DATA_TYPE_UINT16"], 1)
+PointAttribute.INDICES = PointAttribute("INDICES", PointAttributeTypes["DATA_TYPE_UINT32"], 1)
+PointAttribute.SPACING = PointAttribute("SPACING", PointAttributeTypes["DATA_TYPE_FLOAT"], 1)
+PointAttribute.GPS_TIME = PointAttribute("GPS_TIME", PointAttributeTypes["DATA_TYPE_DOUBLE"], 1)
+
+typed_array_mapping = {
+    "int8":   np.int8,
+    "int16":  np.int16,
+    "int32":  np.int32,
+    "int64":  np.float64,
+    "uint8":  np.uint8,
+    "uint16": np.uint16,
+    "uint32": np.uint32,
+    "uint64": np.float64,
+    "float":  np.float32,
+    "double": np.float64,
+}
 
 class PointAttributes:
     def __init__(self, pointAttributes=None):
@@ -97,16 +109,16 @@ class PointAttributes:
         return any(attr in self.attributes for attr in normal_attributes)
 
 typename_typeattribute_map = {
-    "double": PointAttributeTypes.DATA_TYPE_DOUBLE,
-    "float": PointAttributeTypes.DATA_TYPE_FLOAT,
-    "int8": PointAttributeTypes.DATA_TYPE_INT8,
-    "uint8": PointAttributeTypes.DATA_TYPE_UINT8,
-    "int16": PointAttributeTypes.DATA_TYPE_INT16,
-    "uint16": PointAttributeTypes.DATA_TYPE_UINT16,
-    "int32": PointAttributeTypes.DATA_TYPE_INT32,
-    "uint32": PointAttributeTypes.DATA_TYPE_UINT32,
-    "int64": PointAttributeTypes.DATA_TYPE_INT64,
-    "uint64": PointAttributeTypes.DATA_TYPE_UINT64,
+    "double": PointAttributeTypes["DATA_TYPE_DOUBLE"],
+    "float": PointAttributeTypes["DATA_TYPE_FLOAT"],
+    "int8": PointAttributeTypes["DATA_TYPE_INT8"],
+    "uint8": PointAttributeTypes["DATA_TYPE_UINT8"],
+    "int16": PointAttributeTypes["DATA_TYPE_INT16"],
+    "uint16": PointAttributeTypes["DATA_TYPE_UINT16"],
+    "int32": PointAttributeTypes["DATA_TYPE_INT32"],
+    "uint32": PointAttributeTypes["DATA_TYPE_UINT32"],
+    "int64": PointAttributeTypes["DATA_TYPE_INT64"],
+    "uint64": PointAttributeTypes["DATA_TYPE_UINT64"],
 }
 
 tmpVec3 = Vector3()
@@ -133,20 +145,40 @@ def createChildAABB(aabb: BoundingBox, index: int) -> BoundingBox:
 
     return BoundingBox(min_point=minPoint, max_point=maxPoint)
 
-def loadPotree(path, name):
+def loadPotree(path):
     if not os.path.exists(path):
         return None
     
-    if "metadata.json" not in str(path):
-        assert False, "[ Error ] Potree path does not contain metadata.json in loadPotree method"
+    if "metadata.json" not in os.listdir(path):
+        assert False, "[ Error ] Potree path dir does not contain metadata.json in loadPotree method"
 
     loadworker = potreeLoader()
-    loadworker.load(path, name)
+    octree = loadworker.load(path)
+    return octree
+
+def toIndex(x, y, z, sizeX, sizeY, sizeZ):
+    gridSize = 32
+    dx = gridSize * x / sizeX
+    dy = gridSize * y / sizeY
+    dz = gridSize * z / sizeZ
+
+    # print(dx, gridSize)
+
+    ix = min(int(dx), gridSize - 1)
+    iy = min(int(dy), gridSize - 1)
+    iz = min(int(dz), gridSize - 1)
+
+    index = ix + iy * gridSize + iz * gridSize * gridSize
+    return index
 
 class nodeLoader():
     
     def __init__(self, path: str) -> None:
         self.path = path
+        self.metadata = None
+        self.attributes = None
+        self.scale = None
+        self.offset = None
 
     def loadHierarchy(self, node: OctreeGaussianNode) -> None:
         hierarchyByteOffset = node.hierarchyByteOffset
@@ -154,7 +186,7 @@ class nodeLoader():
         first = hierarchyByteOffset
         last = first + hierarchyByteSize - 1
         # load the hierarchy.bin from byte first to last
-        hierarchyPath = self.path.replace("metadata.json", "hierarchy.bin")
+        hierarchyPath = os.path.join(self.path, "hierarchy.bin")
         with open(hierarchyPath, "rb") as f:
             # load from first to last, which is index of bytes
             f.seek(first)
@@ -164,14 +196,21 @@ class nodeLoader():
 
     def parseHierarchy(self, node: OctreeGaussianNode, buffer):
         bytesPerNode = 22
-        numNodes = len(buffer) / bytesPerNode
+        numNodes = int(len(buffer) / bytesPerNode)
 
-        octree = node.OctreeGaussian
+        # print(numNodes)
+        # print(buffer)
+        # buffer is binary, 
+
+        octree = node.octreeGeometry
         nodes = [None for i in range(numNodes)]
         nodes[0] = node
         nodePos = 1
 
         for i in range(numNodes):
+
+            # print(nodes)
+
             start = i * bytesPerNode
             # uint8
             type = buffer[start]
@@ -183,6 +222,8 @@ class nodeLoader():
             byteOffset = int.from_bytes(buffer[start + 6:start + 14], byteorder='little', signed=True)
             # bigint 64
             byteSize = int.from_bytes(buffer[start + 14:start + 22], byteorder='little', signed=True)
+
+            # print(f"[ Info ] type: {type}, childMask: {childMask}, numPoints: {numPoints}, byteOffset: {byteOffset}, byteSize: {byteSize}")
 
             if nodes[i].nodeType == 2:
                 nodes[i].byteOffset = byteOffset
@@ -218,6 +259,7 @@ class nodeLoader():
                 child.parent = nodes[i]
 
                 nodes[i].children[childIndex] = child
+                nodes[nodePos] = child
                 nodePos += 1
 
     def load(self, node: OctreeGaussianNode) -> None:
@@ -234,7 +276,8 @@ class nodeLoader():
         byteOffset = node.byteOffset
         byteSize = node.byteSize
 
-        octreePath = self.path.replace("metadata.json", "octree.bin")
+        # octreePath = self.path.replace("metadata.json", "octree.bin")
+        octreePath = os.path.join(self.path, "octree.bin")
 
         first = byteOffset
         last = first + byteSize - 1
@@ -247,14 +290,114 @@ class nodeLoader():
                 buffer = f.read(last - first + 1)
             f.close()
 
+        # buffer size
+        print(len(buffer))
 
+        attributeBuffers = {}
+        attributeOffset = 0
+
+        bytesPerPoint = 0
+        print(node.octreeGeometry.pointAttributes.attributes)
+        for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+            bytesPerPoint += pointAttribute.byteSize
+
+        gridSize = 32
+        grid = np.zeros((gridSize ** 3, ), dtype=np.uint32)
+
+        # let box = node.boundingBox;
+        # let min = node.octreeGeometry.offset.clone().add(box.min);
+        # let size = box.max.clone().sub(box.min);
+        # let max = min.clone().add(size);
+        # let numPoints = node.numPoints;
+        box = node.boundingbox
+        min = node.octreeGeometry.offset + box.min
+        size = box.max - box.min
+        max = min + size
+
+        numOccupiedCells = 0
+        for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+            if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
+                buff = np.zeros(node.numGaussians * 3, dtype=np.float32)
+                # positions = buff.view(np.float32)
+                positions = buff
+
+                for j in range(node.numGaussians):
+                    pointOffset = j * bytesPerPoint
+
+
+                    # let x = (view.getInt32(pointOffset + attributeOffset + 0, true) * scale[0]) + offset[0] - min.x;
+				    # let y = (view.getInt32(pointOffset + attributeOffset + 4, true) * scale[1]) + offset[1] - min.y;
+				    # let z = (view.getInt32(pointOffset + attributeOffset + 8, true) * scale[2]) + offset[2] - min.z;
+
+                    # x, y, z = [np.frombuffer(buffer[pointOffset + attributeOffset + i:pointOffset + attributeOffset + i + 4], dtype=np.int32)[0] * node.octreeGeometry.scale[i] + node.octreeGeometry.loader.scale[i] - min[i] for i in range(0, 12, 4)]
+                    # x = (buffer[pointOffset + attributeOffset + 0] * node.octreeGeometry.scale[0]) + node.octreeGeometry.offset[0] - min
+                    # print(node.octreeGeometry.scale)
+                    # print(node.octreeGeometry.offset)
+                    x = (np.frombuffer(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], dtype=np.int32)[0] * node.octreeGeometry.scale[0]) + node.octreeGeometry.offset.x - min.x
+                    y = (np.frombuffer(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], dtype=np.int32)[0] * node.octreeGeometry.scale[1]) + node.octreeGeometry.offset.y - min.y
+                    z = (np.frombuffer(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], dtype=np.int32)[0] * node.octreeGeometry.scale[2]) + node.octreeGeometry.offset.z - min.z
+
+                    # print(x, y, z, size.x, size.y, size.z)
+
+                    index = toIndex(x, y, z, size.x, size.y, size.z)
+                    grid[index] += 1
+
+                    if grid[index] == 0:
+                        numOccupiedCells += 1
+                    
+                    positions[3 * j + 0] = x
+                    positions[3 * j + 1] = y
+                    positions[3 * j + 2] = z
+
+                attributeBuffers[pointAttribute.name] = {"buffer": buff, "attribute": pointAttribute}
+            else:
+                # other attribute
+                pass
+
+            # attributeOffset += pointAttribute.byteSize
+
+            # occupancy = int(node.numGaussians / numOccupiedCells)
+            
+            # buff = np.zeros(node.numGaussians, dtype=np.float32)
+            # # indices = buff.view(np.float32)
+            # indices = buff
+
+            # for i in range(node.numGaussians):
+            #     indices[i] = i
+
+            # attributeBuffers["INDICES"] = {"buffer": buff, "attribute": PointAttribute.INDICES}
+
+            # vectors = pointAttribute.vectors
+
+            # for vector in vectors:
+            #     name, attributes = vector["name"], vector["attributes"]
+            #     numVectorElements = attributes.numElements
+            #     f32 = np.zeros(node.numGaussians * numVectorElements, dtype=np.float32)
+            #     # f32 = buffer
+            #     iElement = 0
+            #     for sourceName in attributes:
+            #         sourceBuffer = attributeBuffers[sourceName]
+            #         offset, scale = sourceBuffer["offset"], sourceBuffer["scale"]
+            #         view = sourceBuffer["buffer"]
+
+            #         for j in range(node.numGaussians):
+            #             value = view[j * 4]
+
+            node.octreeGeometry.pointAttributes = attributeBuffers
+            node.loaded = True
+            node.loading = False
+            potreeConst["numNodesLoading"] -= 1
 
 class potreeLoader():
 
     def __init__(self) -> None:
         self.metadata = None
 
-    def load(self, path, name):
+    def load(self, path_dir):
+
+        # get metadata path
+        path = os.path.join(path_dir, "metadata.json")
+
         if not os.path.exists(path):
             assert False, "[ Error ] Path does not exist in disk in potreeLoader.load method"
         
@@ -264,9 +407,54 @@ class potreeLoader():
         file.close()
 
         # parse the attributes
-        attributes = self.parseAttributes(self.metadata["attributes"])\
-        loader = NodeLoader()
+        attributes = self.parseAttributes(self.metadata["attributes"])
+        # loader = NodeLoader()
 
+        loader = nodeLoader(path_dir)
+        loader.metadata = self.metadata
+        loader.attributes = attributes
+        loader.scale = self.metadata["scale"]
+        loader.offset = self.metadata["offset"]
+
+        # define octreeGeometry
+        octree = OctreeGeometry()
+        octree.spacing = self.metadata["spacing"]
+        octree.scale = self.metadata["scale"]
+
+        meta_min = self.metadata["boundingBox"]["min"]
+        meta_max = self.metadata["boundingBox"]["max"]
+
+        min = Vector3(meta_min[0], meta_min[1], meta_min[2])
+        max = Vector3(meta_max[0], meta_max[1], meta_max[2])
+        boundingBox = BoundingBox(min, max)
+
+        offset = Vector3(meta_min[0], meta_min[1], meta_min[2])
+
+        # offset = min.copy()
+        boundingBox.min -= offset
+        boundingBox.max -= offset
+
+        octree.projection = self.metadata["projection"]
+        octree.boundingBox = boundingBox
+        octree.boundingSphere = boundingBox.getBoundingSphere()
+        octree.tightBoundingSphere = boundingBox.getBoundingSphere()
+        octree.offset = offset
+        octree.pointAttributes = self.parseAttributes(self.metadata["attributes"])
+        octree.loader = loader
+
+        root = OctreeGaussianNode("r", octree, boundingBox)
+        root.level = 0
+        root.nodeType = 2
+        root.hierarchyByteOffset = 0
+        root.hierarchyByteSize = self.metadata["hierarchy"]["firstChunkSize"]
+        root.spacing = octree.spacing
+        root.byteOffset = 0
+
+        octree.root = root
+
+        loader.load(root)
+
+        return octree
 
     def parseAttributes(self, jsonAttributes: list) -> None:
         attributes = PointAttributes()

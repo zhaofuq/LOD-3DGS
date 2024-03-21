@@ -17,7 +17,7 @@ from typing import NamedTuple
 # simple vector3
 class Vector3:
 
-    def __init__(self, x=0, y=0, z=0):
+    def __init__(self, x=float(0), y=float(0), z=float(0)):
         self.x = x
         self.y = y
         self.z = z
@@ -122,24 +122,36 @@ class OctreeGaussian:
     def parseHierarchy():
         pass
 
+class OctreeGeometry:
+    def __init__(self):
+        self.spacing = 0
+        self.boundingbox = None
+        self.root = None
+        self.scale = None
+        self.pointAttributes = None
+        self.loader = None
+
 class OctreeGaussianNode:
     # Static variables
     IDCount = 0
 
-    def __init__(self, name, OctreeGaussian, boundingbox: BoundingBox):
+    def __init__(self, name, octreeGeometry, boundingbox: BoundingBox):
         self.id = OctreeGaussianNode.IDCount
         OctreeGaussianNode.IDCount += 1
         self.name = name
-        self.index = int(name[-1])
+        self.index = 0 if name == "r" else int(name[-1])
         self.nodeType = 2
         self.hierarchyByteOffset = 0
         self.hierarchyByteSize = 0
         self.byteOffset = 0
         self.byteSize = 0
         self.spacing = 0
-        self.OctreeGaussian = OctreeGaussian
+        self.projection = 0
+        self.offset = 0
+        self.octreeGeometry = octreeGeometry
         self.boundingbox = boundingbox
         self.boundingSphere = boundingbox.getBoundingSphere()
+        self.tightBoundingSphere = None
         self.children = [None for _ in range(8)]
         self.parent = None
         self.numGaussians = 0
@@ -151,7 +163,27 @@ class OctreeGaussianNode:
         pass
     
     def __repr__(self):
-        return f"OctreeGaussianNode({self.name})"
+        # return f"[ Debug ] OctreeGaussianNode \n \
+        #     {self.name}\n \
+        #     {self.index}\n \
+        #     {self.nodeType}\n \
+        #     {self.hierarchyByteOffset}\n \
+        #     {self.hierarchyByteSize}\n \
+        #     {self.byteOffset}\n \
+        #     {self.byteSize}\n \
+        #     {self.spacing}\n \
+        #     {self.projection}\n \
+        #     {self.offset}\n \
+        #     {self.boundingbox} \n \
+        #     {self.boundingSphere} \n \
+        #     {self.tightBoundingSphere} \n \
+        #     {self.children} \n \
+        #     {self.parent} \n \
+        #     {self.numGaussians} \n \
+        #     {self.level} \n \
+        #     {self.loaded} \n \
+        #     {self.loading}"
+        return f"OctreeGaussianNode {self.name}"
     
     def isGeometryNode(self) -> bool:
         return True

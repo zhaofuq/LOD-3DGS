@@ -26,6 +26,7 @@ from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from utils.system_utils import mkdir_p
 from scene.gaussian_model import BasicPointCloud
+from scene.potree_loader import loadPotree
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -405,7 +406,7 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
 
         # Convert to octree
         print("[ Dataloader ] Converting LAS to octree for level-of-detail pointclouds.")
-        command = [os.path.join(os.getcwd(), "PotreeConverter/bin/Release/Converter.exe"), las_path, "-o", octree_path, "--overwrite"]
+        command = [os.path.join(os.getcwd(), "PotreeConverter/bin/RelWithDebInfo/Converter.exe"), las_path, "-o", octree_path, "--overwrite"]
         subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print("[ Dataloader ] LOD pointclouds generated.")
 
@@ -413,7 +414,20 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
         print("[ Dataloader ] Found octree, skipping conversion.")
 
     # init the potree scene
-    potree = OctreeGaussian(octree_path)
+    # potree = OctreeGaussian(octree_path)
+        
+    # print(octree_path)
+        
+    potree = loadPotree(octree_path)
+
+    print(potree)
+
+    print(potree.root.numGaussians)
+    # print(potree.pointAttributes["position"]["buffer"])
+    print(potree.pointAttributes["position"]["buffer"])
+
+    print(potree.root.children[0].numGaussians)
+    print(potree.root.children[1].numGaussians)
 
 
     scene_info = SceneInfo(point_cloud=pcd,
