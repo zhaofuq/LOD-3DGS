@@ -439,6 +439,10 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
 
     """function to save the potree class into ply file and store into disk"""
 
+    # current bugs
+    # how to recover point cloud from potree struct, the offset of position has problem
+    # gaussianmodels need to be replace to real gaussianmodesl
+
     def collect_position_buffers(node):
         position_buffers = []
         color_buffers = []
