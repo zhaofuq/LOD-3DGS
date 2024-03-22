@@ -6,6 +6,8 @@ import numpy as np
 import json
 
 from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox, OctreeGeometry
+from scene.gaussian_model import GaussianModel
+from utils.graphics_utils import BasicPointCloud
 
 potreeConst = {
     "pointBudget": 1 * 1000 * 1000,
@@ -209,8 +211,6 @@ class nodeLoader():
 
         for i in range(numNodes):
 
-            # print(nodes)
-
             start = i * bytesPerNode
             # uint8
             type = buffer[start]
@@ -264,6 +264,8 @@ class nodeLoader():
 
     def load(self, node: OctreeGaussianNode) -> None:
 
+        # print(node)
+
         if (node.loaded or node.loading):
             return
         
@@ -276,7 +278,6 @@ class nodeLoader():
         byteOffset = node.byteOffset
         byteSize = node.byteSize
 
-        # octreePath = self.path.replace("metadata.json", "octree.bin")
         octreePath = os.path.join(self.path, "octree.bin")
 
         first = byteOffset
@@ -290,32 +291,30 @@ class nodeLoader():
                 buffer = f.read(last - first + 1)
             f.close()
 
-        # buffer size
-        print(len(buffer))
-
         attributeBuffers = {}
         attributeOffset = 0
 
         bytesPerPoint = 0
-        print(node.octreeGeometry.pointAttributes.attributes)
+        # print(node.octreeGeometry.pointAttributes)
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+            # print("dfdfd")
             bytesPerPoint += pointAttribute.byteSize
 
         gridSize = 32
         grid = np.zeros((gridSize ** 3, ), dtype=np.uint32)
 
-        # let box = node.boundingBox;
-        # let min = node.octreeGeometry.offset.clone().add(box.min);
-        # let size = box.max.clone().sub(box.min);
-        # let max = min.clone().add(size);
-        # let numPoints = node.numPoints;
+        scale = node.octreeGeometry.scale
         box = node.boundingbox
         min = node.octreeGeometry.offset + box.min
         size = box.max - box.min
         max = min + size
+        offset = node.octreeGeometry.loader.offset
 
-        numOccupiedCells = 0
+        # print(node.octreeGeometry.offset)
+
+        # numOccupiedCells = 0
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+            # print(pointAttribute.name)
             if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
                 buff = np.zeros(node.numGaussians * 3, dtype=np.float32)
                 # positions = buff.view(np.float32)
@@ -324,37 +323,45 @@ class nodeLoader():
                 for j in range(node.numGaussians):
                     pointOffset = j * bytesPerPoint
 
-
-                    # let x = (view.getInt32(pointOffset + attributeOffset + 0, true) * scale[0]) + offset[0] - min.x;
-				    # let y = (view.getInt32(pointOffset + attributeOffset + 4, true) * scale[1]) + offset[1] - min.y;
-				    # let z = (view.getInt32(pointOffset + attributeOffset + 8, true) * scale[2]) + offset[2] - min.z;
-
-                    # x, y, z = [np.frombuffer(buffer[pointOffset + attributeOffset + i:pointOffset + attributeOffset + i + 4], dtype=np.int32)[0] * node.octreeGeometry.scale[i] + node.octreeGeometry.loader.scale[i] - min[i] for i in range(0, 12, 4)]
-                    # x = (buffer[pointOffset + attributeOffset + 0] * node.octreeGeometry.scale[0]) + node.octreeGeometry.offset[0] - min
-                    # print(node.octreeGeometry.scale)
-                    # print(node.octreeGeometry.offset)
-                    x = (np.frombuffer(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], dtype=np.int32)[0] * node.octreeGeometry.scale[0]) + node.octreeGeometry.offset.x - min.x
-                    y = (np.frombuffer(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], dtype=np.int32)[0] * node.octreeGeometry.scale[1]) + node.octreeGeometry.offset.y - min.y
-                    z = (np.frombuffer(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], dtype=np.int32)[0] * node.octreeGeometry.scale[2]) + node.octreeGeometry.offset.z - min.z
-
-                    # print(x, y, z, size.x, size.y, size.z)
+                    x = (np.frombuffer(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], dtype=np.int32)[0] * scale[0]) + offset[0] - min.x
+                    y = (np.frombuffer(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], dtype=np.int32)[0] * scale[1]) + offset[1] - min.y
+                    z = (np.frombuffer(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], dtype=np.int32)[0] * scale[2]) + offset[2] - min.z
 
                     index = toIndex(x, y, z, size.x, size.y, size.z)
                     grid[index] += 1
 
-                    if grid[index] == 0:
-                        numOccupiedCells += 1
+                    # if grid[index] == 0:
+                    #     numOccupiedCells += 1
                     
                     positions[3 * j + 0] = x
                     positions[3 * j + 1] = y
                     positions[3 * j + 2] = z
 
                 attributeBuffers[pointAttribute.name] = {"buffer": buff, "attribute": pointAttribute}
+            elif pointAttribute.name in ["RGBA", "rgba"]:
+                # print("NB")
+                buff = np.zeros(node.numGaussians * 4, dtype = np.uint8)
+                colors = buff
+
+                for j in range(node.numGaussians):
+                    pointOffset = j * bytesPerPoint
+                    r = np.frombuffer(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 2], dtype=np.uint16)[0]
+                    g = np.frombuffer(buffer[pointOffset + attributeOffset + 2:pointOffset + attributeOffset + 4], dtype=np.uint16)[0]
+                    b = np.frombuffer(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 6], dtype=np.uint16)[0]
+
+                    colors[4 * j + 0] = r / 256 if r > 255 else r
+                    colors[4 * j + 1] = g / 256 if g > 255 else g
+                    colors[4 * j + 2] = b / 256 if b > 255 else b
+
+                    # print(f"r: {r} g: {g} b: {b}")
+                    
+                attributeBuffers[pointAttribute.name] = {"buffer": buff, "attribute": pointAttribute}
+
             else:
-                # other attribute
+                # other attribute no need
                 pass
 
-            # attributeOffset += pointAttribute.byteSize
+            attributeOffset += pointAttribute.byteSize
 
             # occupancy = int(node.numGaussians / numOccupiedCells)
             
@@ -383,10 +390,24 @@ class nodeLoader():
             #         for j in range(node.numGaussians):
             #             value = view[j * 4]
 
-            node.octreeGeometry.pointAttributes = attributeBuffers
-            node.loaded = True
-            node.loading = False
-            potreeConst["numNodesLoading"] -= 1
+            # read pos and rgb from point attributeBuffers
+
+
+        node_position = np.array(attributeBuffers["position"]["buffer"], dtype=np.float32).reshape(-1, 3)
+        node_colors = np.array(attributeBuffers["rgba"]["buffer"], dtype=np.uint8).reshape(-1, 4)
+        try:
+            node_colors = np.array(attributeBuffers["rgba"]["buffer"], dtype=np.uint8).reshape(-1, 4)
+        except:
+            node_colors = np.zeros(len(attributeBuffers["position"]["buffer"]))
+
+        pcd = BasicPointCloud(node_position, node_colors, None)
+
+        node.gaussian_model = pcd
+
+        # node.octreeGeometry.pointAttributes = attributeBuffers
+        node.loaded = True
+        node.loading = False
+        potreeConst["numNodesLoading"] -= 1
 
 class potreeLoader():
 
@@ -430,7 +451,6 @@ class potreeLoader():
 
         offset = Vector3(meta_min[0], meta_min[1], meta_min[2])
 
-        # offset = min.copy()
         boundingBox.min -= offset
         boundingBox.max -= offset
 

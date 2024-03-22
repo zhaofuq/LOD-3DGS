@@ -130,6 +130,7 @@ class OctreeGeometry:
         self.scale = None
         self.pointAttributes = None
         self.loader = None
+        # self.gaussian_model = None
 
 class OctreeGaussianNode:
     # Static variables
@@ -140,7 +141,7 @@ class OctreeGaussianNode:
         OctreeGaussianNode.IDCount += 1
         self.name = name
         self.index = 0 if name == "r" else int(name[-1])
-        self.nodeType = 2
+        self.nodeType = 0
         self.hierarchyByteOffset = 0
         self.hierarchyByteSize = 0
         self.byteOffset = 0
@@ -148,6 +149,7 @@ class OctreeGaussianNode:
         self.spacing = 0
         self.projection = 0
         self.offset = 0
+        self.gaussian_model = None
         self.octreeGeometry = octreeGeometry
         self.boundingbox = boundingbox
         self.boundingSphere = boundingbox.getBoundingSphere()

@@ -27,6 +27,7 @@ from utils.sh_utils import SH2RGB
 from utils.system_utils import mkdir_p
 from scene.gaussian_model import BasicPointCloud
 from scene.potree_loader import loadPotree
+import queue
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -414,54 +415,60 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
         print("[ Dataloader ] Found octree, skipping conversion.")
 
     # init the potree scene
-    # potree = OctreeGaussian(octree_path)
-        
-    # print(octree_path)
-        
     potree = loadPotree(octree_path)
+    octreeGeometry = potree
+    octreeGeometryLoader = octreeGeometry.loader
 
-    print(potree)
+    num_levels = 16
 
-    print(potree.root.numGaussians)
-    # print(potree.pointAttributes["position"]["buffer"])
-    print(potree.root.octreeGeometry.pointAttributes["position"]["buffer"])
+    q = queue.Queue()
+    q.put({"node": octreeGeometry.root, "level": 0})
+    while q.qsize() > 0:
+        element = q.get()
+        node = element["node"]
+        level = element["level"]
+        if level < num_levels:
+            octreeGeometryLoader.load(node)
 
-    print(len(potree.root.octreeGeometry.pointAttributes["position"]["buffer"]))
+            for cid in range(8):
+                child = node.children[cid]
+                if child is not None:
+                    q.put({"node": child, "level": level + 1})
 
-    # print(potree.root.children[0].numGaussians)
-    # print(potree.root.children[1].numGaussians)
+    # plot bbox to check if generate correct
 
-    # name r01 04 05 06
-    # print(potree.root.children[0].children[5].children)
+    """function to save the potree class into ply file and store into disk"""
 
-    # test with construct ply from potree
     def collect_position_buffers(node):
         position_buffers = []
-
-        if hasattr(node, 'octreeGeometry') and "position" in node.octreeGeometry.pointAttributes:
-            position_buffer = node.octreeGeometry.pointAttributes["position"]["buffer"]
-            position_array = np.array(position_buffer, dtype=np.float32).reshape(-1, 3)  # 每三个数为一组，转换为二维数组
-            position_buffers.append(position_array)
-            # position_buffers.append(position_buffer)
-
+        color_buffers = []
+        # print(node)
+        # if node.gaussian_model is None:
+        #     print(node)
+        # if node.gaussian_model is not None:
+        position_buffer = node.gaussian_model.points
+        # position_buffer += node.offset
+        # min = node.boundingbox.min
+        # # print(min)
+        # min = np.array([min.x, min.y, min.z])
+        # for pos in position_buffer:
+        #     pos += min
+        position_buffers.append(position_buffer)
+        color_buffer = node.gaussian_model.colors
+        color_buffers.append(color_buffer)
         if hasattr(node, 'children'):
             for child in node.children:
                 if child is not None:
-                    position_buffers.extend(collect_position_buffers(child))
-
-        return position_buffers
-
-    # recursive read the potree
-    position_buffers = collect_position_buffers(potree.root)
-
+                    position_buffers.extend(collect_position_buffers(child)[0])
+                    color_buffers.extend(collect_position_buffers(child)[1])
+        return position_buffers, color_buffers
+    position_buffers, color_buffers = collect_position_buffers(potree.root)
     all_positions = np.concatenate(position_buffers, axis=0)
-    print(all_positions.shape)
-
-    # rearrange buffer and dump to ply
+    all_color = np.concatenate(color_buffers, axis=0)
     output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\point_cloud_from_potree.ply"
     vertices = np.array(
-        [(position[0], position[1], position[2]) for position in all_positions],
-        dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+        [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(all_positions, all_color)],
+        dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
     )
     el = PlyElement.describe(vertices, 'vertex')
     PlyData([el], text=True).write(output_path)
