@@ -270,9 +270,7 @@ class nodeLoader():
         attributeOffset = 0
 
         bytesPerPoint = 0
-        # print(node.octreeGeometry.pointAttributes)
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
-            # print("dfdfd")
             bytesPerPoint += pointAttribute.byteSize
 
         scale = node.octreeGeometry.scale
@@ -283,7 +281,6 @@ class nodeLoader():
         offset = node.octreeGeometry.loader.offset
 
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
-            # print(pointAttribute.name)
             if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
                 buff = np.zeros(node.numGaussians * 3, dtype=np.float32)
                 positions = buff
@@ -298,7 +295,6 @@ class nodeLoader():
 
                 attributeBuffers[pointAttribute.name] = {"buffer": buff, "attribute": pointAttribute}
             elif pointAttribute.name in ["RGBA", "rgba"]:
-                # print("NB")
                 buff = np.zeros(node.numGaussians * 4, dtype = np.uint8)
                 colors = buff
 
@@ -311,8 +307,6 @@ class nodeLoader():
                     colors[4 * j + 0] = r / 256 if r > 255 else r
                     colors[4 * j + 1] = g / 256 if g > 255 else g
                     colors[4 * j + 2] = b / 256 if b > 255 else b
-
-                    # print(f"r: {r} g: {g} b: {b}")
                     
                 attributeBuffers[pointAttribute.name] = {"buffer": buff, "attribute": pointAttribute}
 
@@ -333,7 +327,6 @@ class nodeLoader():
 
         node.gaussian_model = pcd
 
-        # node.octreeGeometry.pointAttributes = attributeBuffers
         node.loaded = True
         node.loading = False
         potreeConst["numNodesLoading"] -= 1
@@ -384,8 +377,6 @@ class potreeLoader():
 
         octree.projection = self.metadata["projection"]
         octree.boundingBox = boundingBox
-        # octree.boundingSphere = boundingBox.getBoundingSphere()
-        # octree.tightBoundingSphere = boundingBox.getBoundingSphere()
         octree.offset = offset
         octree.pointAttributes = self.parseAttributes(self.metadata["attributes"])
         octree.loader = loader
@@ -433,7 +424,6 @@ class potreeLoader():
                 if attribute.range[0] == attribute.range[1]:
                     attribute.range[1] += 1
 
-            # attribute.initialRange = attribute.range; # no need
             attributes.add(attribute)
 
         # check if it has normals

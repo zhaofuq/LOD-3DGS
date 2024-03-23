@@ -441,8 +441,6 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
 
     """function to save the potree class into ply file and store into disk"""
 
-    # current bugs
-    # how to recover point cloud from potree struct, the offset of position has problem
     # gaussianmodels need to be replace to real gaussianmodesl
 
     # concat all the position and color buffers into single ply
@@ -455,7 +453,6 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             min = np.array([min.x, min.y, min.z])
             for pos_index in range(len(position_buffer)):
                 position_buffer[pos_index] = (position_buffer[pos_index] + min)
-                # position_buffer[pos_index] = (position_buffer[pos_index])
             position_buffers.append(position_buffer)
             color_buffer = node.gaussian_model.colors
             color_buffers.append(color_buffer)
@@ -487,10 +484,7 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             min = np.array([min.x, min.y, min.z])
             for pos_index in range(len(position_buffer)):
                 position_buffer[pos_index] = (position_buffer[pos_index] + min)
-                # position_buffer[pos_index] = (position_buffer[pos_index])
-    
             name = node.name
-
             output_path = rf"D:\workspace\mipnerf360\bicycle_lod\octree\multi_level_pcd\level_{level}_{name}.ply"
             vertices = np.array(
                 [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(position_buffer, color_buffer)],
@@ -498,12 +492,10 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             )
             el = PlyElement.describe(vertices, 'vertex')
             PlyData([el], text=True).write(output_path)
-
             if hasattr(node, 'children'):
                 for child in node.children:
                     if child is not None:
                         recover_potree(child, level + 1)
-
     recover_potree(potree.root, 0)
 
     scene_info = SceneInfo(point_cloud=pcd,
