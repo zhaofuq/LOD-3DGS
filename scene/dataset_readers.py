@@ -28,6 +28,7 @@ from utils.system_utils import mkdir_p
 from scene.gaussian_model import BasicPointCloud
 from scene.potree_loader import loadPotree
 import queue
+from mpl_toolkits.mplot3d import Axes3D
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -428,7 +429,8 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
         node = element["node"]
         level = element["level"]
         if level < num_levels:
-            octreeGeometryLoader.load(node)
+            if level != 0:
+                octreeGeometryLoader.load(node)
 
             for cid in range(8):
                 child = node.children[cid]
@@ -443,30 +445,29 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
     # how to recover point cloud from potree struct, the offset of position has problem
     # gaussianmodels need to be replace to real gaussianmodesl
 
-    def collect_position_buffers(node):
+    # concat all the position and color buffers into single ply
+    def collect_position_buffers(node, level):
         position_buffers = []
         color_buffers = []
-        # print(node)
-        # if node.gaussian_model is None:
-        #     print(node)
-        # if node.gaussian_model is not None:
-        position_buffer = node.gaussian_model.points
-        # position_buffer += node.offset
-        # min = node.boundingbox.min
-        # # print(min)
-        # min = np.array([min.x, min.y, min.z])
-        # for pos in position_buffer:
-        #     pos += min
-        position_buffers.append(position_buffer)
-        color_buffer = node.gaussian_model.colors
-        color_buffers.append(color_buffer)
-        if hasattr(node, 'children'):
-            for child in node.children:
-                if child is not None:
-                    position_buffers.extend(collect_position_buffers(child)[0])
-                    color_buffers.extend(collect_position_buffers(child)[1])
+        if level <= num_levels:
+            position_buffer = node.gaussian_model.points
+            min = node.boundingbox.min
+            min = np.array([min.x, min.y, min.z])
+            for pos_index in range(len(position_buffer)):
+                # position_buffer[pos_index] = (position_buffer[pos_index] + min)
+                position_buffer[pos_index] = (position_buffer[pos_index])
+            position_buffers.append(position_buffer)
+            color_buffer = node.gaussian_model.colors
+            color_buffers.append(color_buffer)
+            if hasattr(node, 'children'):
+                for child in node.children:
+                    if child is not None:
+                        result = collect_position_buffers(child, level + 1)
+                        position_buffers.extend(result[0])
+                        color_buffers.extend(result[1])
         return position_buffers, color_buffers
-    position_buffers, color_buffers = collect_position_buffers(potree.root)
+    
+    position_buffers, color_buffers = collect_position_buffers(potree.root, 0)
     all_positions = np.concatenate(position_buffers, axis=0)
     all_color = np.concatenate(color_buffers, axis=0)
     output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\point_cloud_from_potree.ply"
@@ -476,6 +477,34 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
     )
     el = PlyElement.describe(vertices, 'vertex')
     PlyData([el], text=True).write(output_path)
+
+    # do not concat, save them individually
+    def recover_potree(node, level):
+        if level <= num_levels:
+            position_buffer = node.gaussian_model.points
+            color_buffer = node.gaussian_model.colors
+            min = node.boundingbox.min
+            min = np.array([min.x, min.y, min.z])
+            for pos_index in range(len(position_buffer)):
+                # position_buffer[pos_index] = (position_buffer[pos_index] + min)
+                position_buffer[pos_index] = (position_buffer[pos_index])
+    
+            name = node.name
+
+            output_path = rf"D:\workspace\mipnerf360\bicycle_lod\octree\multi_level_pcd\level_{level}_{name}.ply"
+            vertices = np.array(
+                [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(position_buffer, color_buffer)],
+                dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+            )
+            el = PlyElement.describe(vertices, 'vertex')
+            PlyData([el], text=True).write(output_path)
+
+            if hasattr(node, 'children'):
+                for child in node.children:
+                    if child is not None:
+                        recover_potree(child, level + 1)
+
+    recover_potree(potree.root, 0)
 
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,

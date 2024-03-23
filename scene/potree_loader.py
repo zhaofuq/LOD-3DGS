@@ -65,19 +65,6 @@ PointAttribute.INDICES = PointAttribute("INDICES", PointAttributeTypes["DATA_TYP
 PointAttribute.SPACING = PointAttribute("SPACING", PointAttributeTypes["DATA_TYPE_FLOAT"], 1)
 PointAttribute.GPS_TIME = PointAttribute("GPS_TIME", PointAttributeTypes["DATA_TYPE_DOUBLE"], 1)
 
-typed_array_mapping = {
-    "int8":   np.int8,
-    "int16":  np.int16,
-    "int32":  np.int32,
-    "int64":  np.float64,
-    "uint8":  np.uint8,
-    "uint16": np.uint16,
-    "uint32": np.uint32,
-    "uint64": np.float64,
-    "float":  np.float32,
-    "double": np.float64,
-}
-
 class PointAttributes:
     def __init__(self, pointAttributes=None):
         self.attributes = []
@@ -100,15 +87,6 @@ class PointAttributes:
 
     def addVector(self, vector):
         self.vectors.append(vector)
-
-    def hasNormals(self):
-        normal_attributes = [
-            PointAttribute.NORMAL_SPHEREMAPPED, 
-            PointAttribute.NORMAL_FLOATS, 
-            PointAttribute.NORMAL, 
-            PointAttribute.NORMAL_OCT16
-        ]
-        return any(attr in self.attributes for attr in normal_attributes)
 
 typename_typeattribute_map = {
     "double": PointAttributeTypes["DATA_TYPE_DOUBLE"],
@@ -200,10 +178,6 @@ class nodeLoader():
         bytesPerNode = 22
         numNodes = int(len(buffer) / bytesPerNode)
 
-        # print(numNodes)
-        # print(buffer)
-        # buffer is binary, 
-
         octree = node.octreeGeometry
         nodes = [None for i in range(numNodes)]
         nodes[0] = node
@@ -232,6 +206,7 @@ class nodeLoader():
             elif type == 2:
                 nodes[i].hierarchyByteOffset = byteOffset
                 nodes[i].hierarchyByteSize = byteSize
+                nodes[i].numGaussians = numPoints
             else:
                 nodes[i].byteOffset = byteOffset
                 nodes[i].byteSize = byteSize
@@ -300,9 +275,6 @@ class nodeLoader():
             # print("dfdfd")
             bytesPerPoint += pointAttribute.byteSize
 
-        gridSize = 32
-        grid = np.zeros((gridSize ** 3, ), dtype=np.uint32)
-
         scale = node.octreeGeometry.scale
         box = node.boundingbox
         min = node.octreeGeometry.offset + box.min
@@ -310,29 +282,16 @@ class nodeLoader():
         max = min + size
         offset = node.octreeGeometry.loader.offset
 
-        # print(node.octreeGeometry.offset)
-
-        # numOccupiedCells = 0
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
             # print(pointAttribute.name)
             if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
                 buff = np.zeros(node.numGaussians * 3, dtype=np.float32)
-                # positions = buff.view(np.float32)
                 positions = buff
-
                 for j in range(node.numGaussians):
                     pointOffset = j * bytesPerPoint
-
-                    x = (np.frombuffer(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], dtype=np.int32)[0] * scale[0]) + offset[0] - min.x
-                    y = (np.frombuffer(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], dtype=np.int32)[0] * scale[1]) + offset[1] - min.y
-                    z = (np.frombuffer(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], dtype=np.int32)[0] * scale[2]) + offset[2] - min.z
-
-                    index = toIndex(x, y, z, size.x, size.y, size.z)
-                    grid[index] += 1
-
-                    # if grid[index] == 0:
-                    #     numOccupiedCells += 1
-                    
+                    x = (int.from_bytes(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], byteorder="little", signed=True) * scale[0]) + offset[0] - min.x
+                    y = (int.from_bytes(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], byteorder="little", signed=True) * scale[1]) + offset[1] - min.y
+                    z = (int.from_bytes(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], byteorder="little", signed=True) * scale[2]) + offset[2] - min.z
                     positions[3 * j + 0] = x
                     positions[3 * j + 1] = y
                     positions[3 * j + 2] = z
@@ -362,36 +321,6 @@ class nodeLoader():
                 pass
 
             attributeOffset += pointAttribute.byteSize
-
-            # occupancy = int(node.numGaussians / numOccupiedCells)
-            
-            # buff = np.zeros(node.numGaussians, dtype=np.float32)
-            # # indices = buff.view(np.float32)
-            # indices = buff
-
-            # for i in range(node.numGaussians):
-            #     indices[i] = i
-
-            # attributeBuffers["INDICES"] = {"buffer": buff, "attribute": PointAttribute.INDICES}
-
-            # vectors = pointAttribute.vectors
-
-            # for vector in vectors:
-            #     name, attributes = vector["name"], vector["attributes"]
-            #     numVectorElements = attributes.numElements
-            #     f32 = np.zeros(node.numGaussians * numVectorElements, dtype=np.float32)
-            #     # f32 = buffer
-            #     iElement = 0
-            #     for sourceName in attributes:
-            #         sourceBuffer = attributeBuffers[sourceName]
-            #         offset, scale = sourceBuffer["offset"], sourceBuffer["scale"]
-            #         view = sourceBuffer["buffer"]
-
-            #         for j in range(node.numGaussians):
-            #             value = view[j * 4]
-
-            # read pos and rgb from point attributeBuffers
-
 
         node_position = np.array(attributeBuffers["position"]["buffer"], dtype=np.float32).reshape(-1, 3)
         node_colors = np.array(attributeBuffers["rgba"]["buffer"], dtype=np.uint8).reshape(-1, 4)
@@ -429,7 +358,6 @@ class potreeLoader():
 
         # parse the attributes
         attributes = self.parseAttributes(self.metadata["attributes"])
-        # loader = NodeLoader()
 
         loader = nodeLoader(path_dir)
         loader.metadata = self.metadata
@@ -456,8 +384,8 @@ class potreeLoader():
 
         octree.projection = self.metadata["projection"]
         octree.boundingBox = boundingBox
-        octree.boundingSphere = boundingBox.getBoundingSphere()
-        octree.tightBoundingSphere = boundingBox.getBoundingSphere()
+        # octree.boundingSphere = boundingBox.getBoundingSphere()
+        # octree.tightBoundingSphere = boundingBox.getBoundingSphere()
         octree.offset = offset
         octree.pointAttributes = self.parseAttributes(self.metadata["attributes"])
         octree.loader = loader

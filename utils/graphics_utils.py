@@ -152,8 +152,8 @@ class OctreeGaussianNode:
         self.gaussian_model = None
         self.octreeGeometry = octreeGeometry
         self.boundingbox = boundingbox
-        self.boundingSphere = boundingbox.getBoundingSphere()
-        self.tightBoundingSphere = None
+        # self.boundingSphere = boundingbox.getBoundingSphere()
+        # self.tightBoundingSphere = None
         self.children = [None for _ in range(8)]
         self.parent = None
         self.numGaussians = 0
