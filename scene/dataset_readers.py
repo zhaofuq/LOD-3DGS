@@ -454,8 +454,8 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             min = node.boundingbox.min
             min = np.array([min.x, min.y, min.z])
             for pos_index in range(len(position_buffer)):
-                # position_buffer[pos_index] = (position_buffer[pos_index] + min)
-                position_buffer[pos_index] = (position_buffer[pos_index])
+                position_buffer[pos_index] = (position_buffer[pos_index] + min)
+                # position_buffer[pos_index] = (position_buffer[pos_index])
             position_buffers.append(position_buffer)
             color_buffer = node.gaussian_model.colors
             color_buffers.append(color_buffer)
@@ -486,8 +486,8 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             min = node.boundingbox.min
             min = np.array([min.x, min.y, min.z])
             for pos_index in range(len(position_buffer)):
-                # position_buffer[pos_index] = (position_buffer[pos_index] + min)
-                position_buffer[pos_index] = (position_buffer[pos_index])
+                position_buffer[pos_index] = (position_buffer[pos_index] + min)
+                # position_buffer[pos_index] = (position_buffer[pos_index])
     
             name = node.name
 
