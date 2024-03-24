@@ -437,11 +437,10 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
                 if child is not None:
                     q.put({"node": child, "level": level + 1})
 
-    # plot bbox to check if generate correct
-
     """function to save the potree class into ply file and store into disk"""
 
     # gaussianmodels need to be replace to real gaussianmodesl
+    # now the position is aligned with colmap coordinate, do not need to add any offset
 
     # concat all the position and color buffers into single ply
     def collect_position_buffers(node, level):
@@ -449,10 +448,6 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
         color_buffers = []
         if level <= num_levels:
             position_buffer = node.gaussian_model.points
-            min = node.boundingbox.min
-            min = np.array([min.x, min.y, min.z])
-            for pos_index in range(len(position_buffer)):
-                position_buffer[pos_index] = (position_buffer[pos_index] + min)
             position_buffers.append(position_buffer)
             color_buffer = node.gaussian_model.colors
             color_buffers.append(color_buffer)
@@ -467,7 +462,7 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
     position_buffers, color_buffers = collect_position_buffers(potree.root, 0)
     all_positions = np.concatenate(position_buffers, axis=0)
     all_color = np.concatenate(color_buffers, axis=0)
-    output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\point_cloud_from_potree.ply"
+    output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\pcd_potree.ply"
     vertices = np.array(
         [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(all_positions, all_color)],
         dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
@@ -480,10 +475,6 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
         if level <= num_levels:
             position_buffer = node.gaussian_model.points
             color_buffer = node.gaussian_model.colors
-            min = node.boundingbox.min
-            min = np.array([min.x, min.y, min.z])
-            for pos_index in range(len(position_buffer)):
-                position_buffer[pos_index] = (position_buffer[pos_index] + min)
             name = node.name
             output_path = rf"D:\workspace\mipnerf360\bicycle_lod\octree\multi_level_pcd\level_{level}_{name}.ply"
             vertices = np.array(

@@ -274,11 +274,10 @@ class nodeLoader():
             bytesPerPoint += pointAttribute.byteSize
 
         scale = node.octreeGeometry.scale
-        box = node.boundingbox
-        min = node.octreeGeometry.offset + box.min
-        size = box.max - box.min
-        max = min + size
         offset = node.octreeGeometry.loader.offset
+
+        # print(node.octreeGeometry.loader.offset)
+        # print(node.octreeGeometry.offset)
 
         for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
             if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
@@ -286,9 +285,11 @@ class nodeLoader():
                 positions = buff
                 for j in range(node.numGaussians):
                     pointOffset = j * bytesPerPoint
-                    x = (int.from_bytes(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], byteorder="little", signed=True) * scale[0]) + offset[0] - min.x
-                    y = (int.from_bytes(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], byteorder="little", signed=True) * scale[1]) + offset[1] - min.y
-                    z = (int.from_bytes(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], byteorder="little", signed=True) * scale[2]) + offset[2] - min.z
+
+                    # reserve pos aligned with colmap coordinate
+                    x = (int.from_bytes(buffer[pointOffset + attributeOffset + 0:pointOffset + attributeOffset + 4], byteorder="little", signed=True) * scale[0]) + offset[0]
+                    y = (int.from_bytes(buffer[pointOffset + attributeOffset + 4:pointOffset + attributeOffset + 8], byteorder="little", signed=True) * scale[1]) + offset[1]
+                    z = (int.from_bytes(buffer[pointOffset + attributeOffset + 8:pointOffset + attributeOffset + 12], byteorder="little", signed=True) * scale[2]) + offset[2]
                     positions[3 * j + 0] = x
                     positions[3 * j + 1] = y
                     positions[3 * j + 2] = z
