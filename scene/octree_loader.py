@@ -1,11 +1,11 @@
-# ref: potree\src\modules\loader\2.0\OctreeGeometry.js
+# ref: potree\src\modules\loader\2.0\octreeGaussian.js
 # create by Penghao Wang
 
 import os
 import numpy as np
 import json
 
-from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox, OctreeGeometry
+from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox, OctreeGaussian
 from scene.gaussian_model import GaussianModel
 from utils.graphics_utils import BasicPointCloud
 
@@ -125,14 +125,14 @@ def createChildAABB(aabb: BoundingBox, index: int) -> BoundingBox:
 
     return BoundingBox(min_point=minPoint, max_point=maxPoint)
 
-def loadPotree(path):
+def loadOctree(path):
     if not os.path.exists(path):
         return None
     
     if "metadata.json" not in os.listdir(path):
-        assert False, "[ Error ] Potree path dir does not contain metadata.json in loadPotree method"
+        assert False, "[ Error ] Octree path dir does not contain metadata.json in loadOctree method"
 
-    loadworker = potreeLoader()
+    loadworker = octreeLoader()
     octree = loadworker.load(path)
     return octree
 
@@ -178,7 +178,7 @@ class nodeLoader():
         bytesPerNode = 22
         numNodes = int(len(buffer) / bytesPerNode)
 
-        octree = node.octreeGeometry
+        octree = node.octreeGaussian
         nodes = [None for i in range(numNodes)]
         nodes[0] = node
         nodePos = 1
@@ -270,16 +270,16 @@ class nodeLoader():
         attributeOffset = 0
 
         bytesPerPoint = 0
-        for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+        for pointAttribute in node.octreeGaussian.pointAttributes.attributes:
             bytesPerPoint += pointAttribute.byteSize
 
-        scale = node.octreeGeometry.scale
-        offset = node.octreeGeometry.loader.offset
+        scale = node.octreeGaussian.scale
+        offset = node.octreeGaussian.loader.offset
 
-        # print(node.octreeGeometry.loader.offset)
-        # print(node.octreeGeometry.offset)
+        # print(node.octreeGaussian.loader.offset)
+        # print(node.octreeGaussian.offset)
 
-        for pointAttribute in node.octreeGeometry.pointAttributes.attributes:
+        for pointAttribute in node.octreeGaussian.pointAttributes.attributes:
             if pointAttribute.name in ["POSITION_CARTESIAN", "position"]:
                 buff = np.zeros(node.numGaussians * 3, dtype=np.float32)
                 positions = buff
@@ -332,7 +332,7 @@ class nodeLoader():
         node.loading = False
         potreeConst["numNodesLoading"] -= 1
 
-class potreeLoader():
+class octreeLoader():
 
     def __init__(self) -> None:
         self.metadata = None
@@ -343,7 +343,7 @@ class potreeLoader():
         path = os.path.join(path_dir, "metadata.json")
 
         if not os.path.exists(path):
-            assert False, "[ Error ] Path does not exist in disk in potreeLoader.load method"
+            assert False, "[ Error ] Path does not exist in disk in octreeLoader.load method"
         
         # load the json file and parse it
         with open(path, 'r') as file:
@@ -359,8 +359,8 @@ class potreeLoader():
         loader.scale = self.metadata["scale"]
         loader.offset = self.metadata["offset"]
 
-        # define octreeGeometry
-        octree = OctreeGeometry()
+        # define octreeGaussian
+        octree = OctreeGaussian()
         octree.spacing = self.metadata["spacing"]
         octree.scale = self.metadata["scale"]
 

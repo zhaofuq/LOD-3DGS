@@ -26,9 +26,8 @@ from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from utils.system_utils import mkdir_p
 from scene.gaussian_model import BasicPointCloud
-from scene.potree_loader import loadPotree
+from scene.octree_loader import loadOctree
 import queue
-from mpl_toolkits.mplot3d import Axes3D
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -357,7 +356,7 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
-def readPotreeColmapInfo(path, images, eval, llffhold=8):
+def readoctreeColmapInfo(path, images, eval, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -408,36 +407,39 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
 
         # Convert to octree
         print("[ Dataloader ] Converting LAS to octree for level-of-detail pointclouds.")
-        command = [os.path.join(os.getcwd(), "PotreeConverter/bin/RelWithDebInfo/Converter.exe"), las_path, "-o", octree_path, "--overwrite"]
+        command = [os.path.join(os.getcwd(), "PotreeConverter/bin/Release/Converter.exe"), las_path, "-o", octree_path, "--overwrite"]
         subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print("[ Dataloader ] LOD pointclouds generated.")
-
     else:
-        print("[ Dataloader ] Found octree, skipping conversion.")
+        if not os.path.exists(os.path.join(octree_path, "metadata.json")):
+            # Convert to octree
+            print("[ Dataloader ] Converting LAS to octree for level-of-detail pointclouds.")
+            command = [os.path.join(os.getcwd(), "PotreeConverter/bin/Release/Converter.exe"), las_path, "-o", octree_path, "--overwrite"]
+            subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print("[ Dataloader ] LOD pointclouds generated.")
+        else:
+            print("[ Dataloader ] Found octree, skipping conversion.")
 
-    # init the potree scene
-    potree = loadPotree(octree_path)
-    octreeGeometry = potree
-    octreeGeometryLoader = octreeGeometry.loader
-
+    # init the octree scene
+    octreeGaussian = loadOctree(octree_path)
+    octreeGaussianLoader = octreeGaussian.loader
     num_levels = 16
-
     q = queue.Queue()
-    q.put({"node": octreeGeometry.root, "level": 0})
+    q.put({"node": octreeGaussian.root, "level": 0})
     while q.qsize() > 0:
         element = q.get()
         node = element["node"]
         level = element["level"]
         if level < num_levels:
             if level != 0:
-                octreeGeometryLoader.load(node)
+                octreeGaussianLoader.load(node)
 
             for cid in range(8):
                 child = node.children[cid]
                 if child is not None:
                     q.put({"node": child, "level": level + 1})
 
-    """function to save the potree class into ply file and store into disk"""
+    """function to save the octree class into ply file and store into disk"""
 
     # gaussianmodels need to be replace to real gaussianmodesl
     # now the position is aligned with colmap coordinate, do not need to add any offset
@@ -459,24 +461,23 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
                         color_buffers.extend(result[1])
         return position_buffers, color_buffers
     
-    position_buffers, color_buffers = collect_position_buffers(potree.root, 0)
+    position_buffers, color_buffers = collect_position_buffers(octreeGaussian.root, 0)
     all_positions = np.concatenate(position_buffers, axis=0)
     all_color = np.concatenate(color_buffers, axis=0)
-    output_path = r"D:\workspace\mipnerf360\bicycle_lod\octree\pcd_potree.ply"
     vertices = np.array(
         [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(all_positions, all_color)],
         dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
     )
     el = PlyElement.describe(vertices, 'vertex')
-    PlyData([el], text=True).write(output_path)
+    PlyData([el], text=True).write(os.path.join(octree_path, "pcd_octree.ply"))
 
     # do not concat, save them individually
-    def recover_potree(node, level):
+    def recover_octree(node, level):
         if level <= num_levels:
             position_buffer = node.gaussian_model.points
             color_buffer = node.gaussian_model.colors
             name = node.name
-            output_path = rf"D:\workspace\mipnerf360\bicycle_lod\octree\multi_level_pcd\level_{level}_{name}.ply"
+            output_path = os.path.join(octree_path, f"level_{level}_{name}.ply")
             vertices = np.array(
                 [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(position_buffer, color_buffer)],
                 dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
@@ -486,8 +487,8 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
             if hasattr(node, 'children'):
                 for child in node.children:
                     if child is not None:
-                        recover_potree(child, level + 1)
-    recover_potree(potree.root, 0)
+                        recover_octree(child, level + 1)
+    recover_octree(octreeGaussian.root, 0)
 
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
@@ -495,12 +496,12 @@ def readPotreeColmapInfo(path, images, eval, llffhold=8):
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path)
     
-    assert 0, "[ Debugging ] Potree scenes are not supported yet!"
+    assert 0, "[ Debugging ] octree scenes are not supported yet!"
 
     return scene_info
 
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
-    "Potree" : readPotreeColmapInfo
+    "Octree" : readoctreeColmapInfo
 }

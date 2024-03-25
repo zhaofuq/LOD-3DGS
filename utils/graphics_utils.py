@@ -111,18 +111,6 @@ class BoundingSphere:
         self.radius = radius
 
 class OctreeGaussian:
-
-    def __init__(self, path):
-        self.octreePath = path
-        # self.root = OctreeGaussianNode()
-    
-    def loadHierarchy(self):
-        pass
-
-    def parseHierarchy():
-        pass
-
-class OctreeGeometry:
     def __init__(self):
         self.spacing = 0
         self.boundingbox = None
@@ -135,7 +123,7 @@ class OctreeGaussianNode:
     # Static variables
     IDCount = 0
 
-    def __init__(self, name, octreeGeometry, boundingbox: BoundingBox):
+    def __init__(self, name, octreeGaussian, boundingbox: BoundingBox):
         self.id = OctreeGaussianNode.IDCount
         OctreeGaussianNode.IDCount += 1
         self.name = name
@@ -149,7 +137,7 @@ class OctreeGaussianNode:
         self.projection = 0
         self.offset = 0
         self.gaussian_model = None
-        self.octreeGeometry = octreeGeometry
+        self.octreeGaussian = octreeGaussian
         self.boundingbox = boundingbox
         self.children = [None for _ in range(8)]
         self.parent = None
