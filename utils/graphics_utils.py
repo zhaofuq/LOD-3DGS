@@ -114,7 +114,7 @@ class OctreeGaussian:
 
     def __init__(self, path):
         self.octreePath = path
-        self.root = OctreeGaussianNode()
+        # self.root = OctreeGaussianNode()
     
     def loadHierarchy(self):
         pass
