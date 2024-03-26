@@ -118,6 +118,7 @@ class OctreeGaussian:
         self.scale = None
         self.pointAttributes = None
         self.loader = None
+        self.maxLevel = 0
 
 class OctreeGaussianNode:
     # Static variables
@@ -138,6 +139,7 @@ class OctreeGaussianNode:
         self.offset = 0
         self.gaussian_model = None
         self.octreeGaussian = octreeGaussian
+        self.pointcloud = None
         self.boundingbox = boundingbox
         self.children = [None for _ in range(8)]
         self.parent = None

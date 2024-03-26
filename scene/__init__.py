@@ -22,14 +22,14 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args : ModelParams, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """
         self.model_path = args.model_path
         self.loaded_iter = None
-        self.gaussians = gaussians
-
+        self.level = 0
+        
         if load_iteration:
             if load_iteration == -1:
                 self.loaded_iter = searchForMaxIteration(os.path.join(self.model_path, "point_cloud"))
@@ -51,6 +51,9 @@ class Scene:
         else:
             assert False, "Could not recognize scene type!"
 
+        self.max_level = scene_info.max_level
+        self.gaussians = [GaussianModel(args.sh_degree, level) for level in range( self.max_level)]
+        
         if not self.loaded_iter:
             with open(scene_info.ply_path, 'rb') as src_file, open(os.path.join(self.model_path, "input.ply") , 'wb') as dest_file:
                 dest_file.write(src_file.read())
@@ -80,23 +83,31 @@ class Scene:
         # Load Gaussian Model
         import time
         st = time.time()
-        if self.loaded_iter:
-            self.gaussians.load_ply(os.path.join(self.model_path,
-                                                           "point_cloud",
-                                                           "iteration_" + str(self.loaded_iter),
-                                                           "point_cloud.ply"))
-        else:
-            self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
+        for level in range(self.max_level):
+            if self.loaded_iter:
+                self.gaussians[level].load_ply(os.path.join(self.model_path,
+                                                            "point_cloud",
+                                                            "iteration_" + str(self.loaded_iter),
+                                                            "level_{}.ply".format(level)))
+            else:
+                self.gaussians[level].create_from_pcd(scene_info.point_cloud[level], self.cameras_extent)
+
         et = time.time()
         print("[ Scene ] Gaussian Model creation took {} seconds".format(et - st))
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
-        self.gaussians.save_ply(os.path.join(point_cloud_path, "point_cloud.ply"))
-        self.gaussians.save_las(os.path.join(point_cloud_path, "point_cloud.las"))
+        for level in range(self.max_level):
+            self.gaussians[level].save_ply(os.path.join(point_cloud_path, "level_{}.ply".format(level)))
 
     def getTrainCameras(self, scale=1.0):
         return self.train_cameras[scale]
 
     def getTestCameras(self, scale=1.0):
         return self.test_cameras[scale]
+
+    def getGaussians(self, level=-1):
+        return self.gaussians[level]
+    
+    def getLevels(self):
+        return self.max_level

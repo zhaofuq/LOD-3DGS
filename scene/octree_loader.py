@@ -9,7 +9,7 @@ from utils.graphics_utils import OctreeGaussianNode, Vector3, BoundingBox, Octre
 from scene.gaussian_model import GaussianModel
 from utils.graphics_utils import BasicPointCloud
 
-potreeConst = {
+octreeConst = {
     "pointBudget": 1 * 1000 * 1000,
     "framenumber" : 0,
     "numNodesLoading" : 0,
@@ -245,7 +245,7 @@ class nodeLoader():
             return
         
         node.loading = True
-        potreeConst["numNodesLoading"] += 1
+        octreeConst["numNodesLoading"] += 1
         
         if node.nodeType == 2:
             self.loadHierarchy(node=node)
@@ -318,7 +318,6 @@ class nodeLoader():
             attributeOffset += pointAttribute.byteSize
 
         node_position = np.array(attributeBuffers["position"]["buffer"], dtype=np.float32).reshape(-1, 3)
-        node_colors = np.array(attributeBuffers["rgba"]["buffer"], dtype=np.uint8).reshape(-1, 4)
         try:
             node_colors = np.array(attributeBuffers["rgba"]["buffer"], dtype=np.uint8).reshape(-1, 4)
         except:
@@ -326,11 +325,11 @@ class nodeLoader():
 
         pcd = BasicPointCloud(node_position, node_colors, None)
 
-        node.gaussian_model = pcd
+        node.pointcloud = pcd
 
         node.loaded = True
         node.loading = False
-        potreeConst["numNodesLoading"] -= 1
+        octreeConst["numNodesLoading"] -= 1
 
 class octreeLoader():
 

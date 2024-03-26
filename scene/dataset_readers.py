@@ -49,6 +49,7 @@ class SceneInfo(NamedTuple):
     test_cameras: list
     nerf_normalization: dict
     ply_path: str
+    max_level: int = 16
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
@@ -178,6 +179,9 @@ def storeLas(path, xyz, rgb):
 
     # Save the LAS file
     out_las.write(path)
+
+
+
 
 def readColmapSceneInfo(path, images, eval, llffhold=8):
     try:
@@ -356,6 +360,44 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
+"""function to save the octree class into ply file and store into disk"""
+
+# gaussianmodels need to be replace to real gaussianmodesl
+# now the position is aligned with colmap coordinate, do not need to add any offset
+
+def collect_position_buffers(node, level):
+    position_buffers = []
+    color_buffers = []
+    if level <= 16:
+        position_buffer = node.pointcloud.points
+        position_buffers.append(position_buffer)
+        color_buffer = node.pointcloud.colors
+        color_buffers.append(color_buffer)
+        if hasattr(node, 'children'):
+            for child in node.children:
+                if child is not None:
+                    result = collect_position_buffers(child, level + 1)
+                    position_buffers.extend(result[0])
+                    color_buffers.extend(result[1])
+    return position_buffers, color_buffers
+
+def recover_octree(octree_path, node, level):
+    if level <= 16:
+        position_buffer = node.pointcloud.points
+        color_buffer = node.pointcloud.colors
+        name = node.name
+        output_path = os.path.join(octree_path, f"level_{level}_{name}.ply")
+        vertices = np.array(
+            [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(position_buffer, color_buffer)],
+            dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+        )
+        el = PlyElement.describe(vertices, 'vertex')
+        PlyData([el], text=True).write(output_path)
+        if hasattr(node, 'children'):
+            for child in node.children:
+                if child is not None:
+                    recover_octree(octree_path, child, level + 1)  
+
 def readoctreeColmapInfo(path, images, eval, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
@@ -423,44 +465,26 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
     # init the octree scene
     octreeGaussian = loadOctree(octree_path)
     octreeGaussianLoader = octreeGaussian.loader
-    num_levels = 16
+    max_level = 0
     q = queue.Queue()
     q.put({"node": octreeGaussian.root, "level": 0})
+    points = [[] for _ in range(16)]
+    colors = [[] for _ in range(16)]
     while q.qsize() > 0:
         element = q.get()
         node = element["node"]
-        level = element["level"]
-        if level < num_levels:
-            if level != 0:
-                octreeGaussianLoader.load(node)
+        max_level = level = element["level"]
+        if level < 16:
+            octreeGaussianLoader.load(node)
+            points[level].append(node.pointcloud.points)
+            colors[level].append(node.pointcloud.colors)
 
             for cid in range(8):
                 child = node.children[cid]
                 if child is not None:
                     q.put({"node": child, "level": level + 1})
 
-    """function to save the octree class into ply file and store into disk"""
-
-    # gaussianmodels need to be replace to real gaussianmodesl
-    # now the position is aligned with colmap coordinate, do not need to add any offset
-
     # concat all the position and color buffers into single ply
-    def collect_position_buffers(node, level):
-        position_buffers = []
-        color_buffers = []
-        if level <= num_levels:
-            position_buffer = node.gaussian_model.points
-            position_buffers.append(position_buffer)
-            color_buffer = node.gaussian_model.colors
-            color_buffers.append(color_buffer)
-            if hasattr(node, 'children'):
-                for child in node.children:
-                    if child is not None:
-                        result = collect_position_buffers(child, level + 1)
-                        position_buffers.extend(result[0])
-                        color_buffers.extend(result[1])
-        return position_buffers, color_buffers
-    
     position_buffers, color_buffers = collect_position_buffers(octreeGaussian.root, 0)
     all_positions = np.concatenate(position_buffers, axis=0)
     all_color = np.concatenate(color_buffers, axis=0)
@@ -472,32 +496,17 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
     PlyData([el], text=True).write(os.path.join(octree_path, "pcd_octree.ply"))
 
     # do not concat, save them individually
-    def recover_octree(node, level):
-        if level <= num_levels:
-            position_buffer = node.gaussian_model.points
-            color_buffer = node.gaussian_model.colors
-            name = node.name
-            output_path = os.path.join(octree_path, f"level_{level}_{name}.ply")
-            vertices = np.array(
-                [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(position_buffer, color_buffer)],
-                dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
-            )
-            el = PlyElement.describe(vertices, 'vertex')
-            PlyData([el], text=True).write(output_path)
-            if hasattr(node, 'children'):
-                for child in node.children:
-                    if child is not None:
-                        recover_octree(child, level + 1)
-    recover_octree(octreeGaussian.root, 0)
+    recover_octree(octree_path, octreeGaussian.root, 0)
+    
+    pcds = [BasicPointCloud(np.concatenate(points[level]), np.concatenate(colors[level]), None) for level in range(max_level)]
 
-    scene_info = SceneInfo(point_cloud=pcd,
+    scene_info = SceneInfo(point_cloud=pcds,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
-                           ply_path=ply_path)
+                           ply_path=ply_path,
+                           max_level=max_level)
     
-    assert 0, "[ Debugging ] octree scenes are not supported yet!"
-
     return scene_info
 
 sceneLoadTypeCallbacks = {
