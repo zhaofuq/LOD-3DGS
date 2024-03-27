@@ -207,7 +207,7 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
-    print("[ Training ] Optimizing Scene: " + args.model_path)
+    print("[ Training ] Optimizing With Parameters: " + str(vars(args)))
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
