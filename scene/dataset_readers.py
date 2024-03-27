@@ -365,10 +365,10 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
 # gaussianmodels need to be replace to real gaussianmodesl
 # now the position is aligned with colmap coordinate, do not need to add any offset
 
-def collect_position_buffers(node, level):
+def collect_position_buffers(node, level, max_level=16):
     position_buffers = []
     color_buffers = []
-    if level <= 16:
+    if level <= max_level:
         position_buffer = node.pointcloud.points
         position_buffers.append(position_buffer)
         color_buffer = node.pointcloud.colors
@@ -376,7 +376,7 @@ def collect_position_buffers(node, level):
         if hasattr(node, 'children'):
             for child in node.children:
                 if child is not None:
-                    result = collect_position_buffers(child, level + 1)
+                    result = collect_position_buffers(child, level + 1, max_level)
                     position_buffers.extend(result[0])
                     color_buffers.extend(result[1])
     return position_buffers, color_buffers
@@ -468,16 +468,12 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
     max_level = 0
     q = queue.Queue()
     q.put({"node": octreeGaussian.root, "level": 0})
-    points = [[] for _ in range(16)]
-    colors = [[] for _ in range(16)]
     while q.qsize() > 0:
         element = q.get()
         node = element["node"]
         max_level = level = element["level"]
         if level < 16:
             octreeGaussianLoader.load(node)
-            points[level].append(node.pointcloud.points)
-            colors[level].append(node.pointcloud.colors)
 
             for cid in range(8):
                 child = node.children[cid]
@@ -485,20 +481,26 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
                     q.put({"node": child, "level": level + 1})
 
     # concat all the position and color buffers into single ply
-    position_buffers, color_buffers = collect_position_buffers(octreeGaussian.root, 0)
-    all_positions = np.concatenate(position_buffers, axis=0)
-    all_color = np.concatenate(color_buffers, axis=0)
-    vertices = np.array(
-        [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(all_positions, all_color)],
-        dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
-    )
-    el = PlyElement.describe(vertices, 'vertex')
-    PlyData([el], text=True).write(os.path.join(octree_path, "pcd_octree.ply"))
+    # position_buffers, color_buffers = collect_position_buffers(octreeGaussian.root, 0, max_level)
+    # all_positions = np.concatenate(position_buffers, axis=0)
+    # all_color = np.concatenate(color_buffers, axis=0)
+    # vertices = np.array(
+    #     [(position[0], position[1], position[2], color[0], color[1], color[2]) for position, color in zip(all_positions, all_color)],
+    #     dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')]
+    # )
+    # el = PlyElement.describe(vertices, 'vertex')
+    # PlyData([el], text=True).write(os.path.join(octree_path, "pcd_octree.ply"))
 
     # do not concat, save them individually
-    recover_octree(octree_path, octreeGaussian.root, 0)
-    
-    pcds = [BasicPointCloud(np.concatenate(points[level]), np.concatenate(colors[level]), None) for level in range(max_level)]
+    # recover_octree(octree_path, octreeGaussian.root, 0)
+
+    pcds = []
+    for level in range(0, max_level + 1):
+        position_buffers, color_buffers = collect_position_buffers(octreeGaussian.root, 0, level)
+        positions = np.concatenate(position_buffers, axis=0)
+        colors = np.concatenate(color_buffers, axis=0)
+        normals = np.zeros_like(positions)
+        pcds.append(BasicPointCloud(positions, colors[:,:3] / 255.0, normals))
 
     scene_info = SceneInfo(point_cloud=pcds,
                            train_cameras=train_cam_infos,

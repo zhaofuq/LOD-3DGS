@@ -128,10 +128,10 @@ class GaussianModel:
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-        features[:, :3, 0 ] = fused_color[:,:3]
+        features[:, :3, 0 ] = fused_color
         features[:, 3:, 1:] = 0.0
 
-        print("[ Scene ] Number of points at initialisation : ", fused_point_cloud.shape[0])
+        print(f"[ Scene ] Number of points at Level {self.level}: ", fused_point_cloud.shape[0])
 
         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
@@ -147,60 +147,6 @@ class GaussianModel:
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-
-    
-    # def init_from_octree(self, node, level):
-    #     if level == 0:  
-    #         self._xyz = [[] for _ in range(self.max_level)]
-    #         self._features_dc = [[] for _ in range(self.max_level)]
-    #         self._features_rest = [[] for _ in range(self.max_level)]
-    #         self._scaling = [[] for _ in range(self.max_level)]
-    #         self._rotation = [[] for _ in range(self.max_level)]
-    #         self._opacity = [[] for _ in range(self.max_level)]
-    #         self.max_radii2D = [[] for _ in range(self.max_level)]
-
-    #     if level <= self.max_level:
-    #         fused_point_cloud = torch.tensor(np.asarray(node.pointcloud.points)).float().cuda()
-    #         fused_color = RGB2SH(torch.tensor(np.asarray(node.pointcloud.colors)).float().cuda())
-    #         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-    #         features[:, :3, 0 ] = fused_color
-    #         features[:, 3:, 1:] = 0.0
-
-    #         dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(node.pointcloud.points)).float().cuda()), 0.0000001)
-    #         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
-    #         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
-    #         rots[:, 0] = 1
-
-    #         opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
-
-    #         self._xyz[level].append(fused_point_cloud)
-    #         self._features_dc[level].append(features[:,:,0:1].transpose(1, 2).contiguous())
-    #         self._features_rest[level].append(features[:,:,1:].transpose(1, 2).contiguous())
-    #         self._scaling[level].append(scales)
-    #         self._rotation[level].append(rots)
-    #         self._opacity[level].append(opacities)
-    #         self.max_radii2D[level].append(torch.zeros((fused_point_cloud.shape[0]), device="cuda"))
-            
-    #         if hasattr(node, 'children'):
-    #             for child in node.children:
-    #                 if child is not None:
-    #                     self.init_from_octree(child, level + 1)
-
-    # def create_from_octree(self, octree : OctreeGaussian, spatial_lr_scale : float):
-    #     self.spatial_lr_scale = spatial_lr_scale
-    #     self.max_level = OctreeGaussian.maxLevel
-    #     if max_level > 0:
-    #         self.init_from_octree(OctreeGaussian.root, 0)
-    #     else:
-    #         assert False, "Octree is empty"
-
-    #     self._xyz = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._xyz])
-    #     self._features_dc = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._features_dc])
-    #     self._features_rest = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._features_rest])
-    #     self._scaling = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._scaling])
-    #     self._rotation = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._rotation])
-    #     self._opacity = nn.ParameterList([nn.Parameter(torch.cat(x, dim=0).requires_grad_(True)) for x in self._opacity])
-    #     self.max_radii2D = [torch.cat(x, dim=0) for x in self.max_radii2D]
 
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense

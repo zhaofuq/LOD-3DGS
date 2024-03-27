@@ -52,7 +52,7 @@ class Scene:
             assert False, "Could not recognize scene type!"
 
         self.max_level = scene_info.max_level
-        self.gaussians = [GaussianModel(args.sh_degree, level) for level in range( self.max_level)]
+        self.gaussians = [GaussianModel(args.sh_degree, level) for level in range(self.max_level + 1)]
         
         if not self.loaded_iter:
             with open(scene_info.ply_path, 'rb') as src_file, open(os.path.join(self.model_path, "input.ply") , 'wb') as dest_file:
@@ -83,7 +83,7 @@ class Scene:
         # Load Gaussian Model
         import time
         st = time.time()
-        for level in range(self.max_level):
+        for level in range(self.max_level + 1):
             if self.loaded_iter:
                 self.gaussians[level].load_ply(os.path.join(self.model_path,
                                                             "point_cloud",
@@ -97,7 +97,7 @@ class Scene:
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
-        for level in range(self.max_level):
+        for level in range(self.max_level+1):
             self.gaussians[level].save_ply(os.path.join(point_cloud_path, "level_{}.ply".format(level)))
 
     def getTrainCameras(self, scale=1.0):
