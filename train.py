@@ -32,11 +32,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     scene = Scene(dataset)
-    gaussians = scene.getGaussians()
-    gaussians.training_setup(opt)
+    # TODO: Modify the following gaussians to be a list of GaussianModel objects, and modify render function to accept a list of Gaussian parameters
+    # gaussians = [GaussianModel, ....], render(...gaussians) -> render(..., xyz, opacity, covariance, ...)
+    # xyz, opacity, covariance... = scene.getGaussians(viewpoint_cam): extract the parameters of different levels of gaussians by viewpoint_cam
+
+    scene.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
-        gaussians.restore(model_params, opt)
+        scene.restore(model_params, opt)
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -56,7 +59,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 net_image_bytes = None
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
                 if custom_cam != None:
-                    net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
+                    # net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
+                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python, scaling_modifer)
+                    net_image = render(custom_cam,  xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, pipe, background, scaling_modifer, cov3D_precomp = cov3D_precomp)
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)
                 if do_training and ((iteration < int(opt.iterations)) or not keep_alive):
@@ -66,11 +71,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         iter_start.record()
 
-        gaussians.update_learning_rate(iteration)
+        scene.update_learning_rate(iteration)
 
         # Every 1000 its we increase the levels of SH up to a maximum degree
         if iteration % 1000 == 0:
-            gaussians.oneupSHdegree()
+            scene.oneupSHdegree()
 
         # Pick a random Camera
         if not viewpoint_stack:
@@ -80,7 +85,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # Render
         if (iteration - 1) == debug_from:
             pipe.debug = True
-        render_pkg = render(viewpoint_cam, gaussians, pipe, background)
+        
+        # render_pkg = render(viewpoint_cam, gaussians, pipe, background)
+        xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python)
+        render_pkg = render(viewpoint_cam,  xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, pipe, background, cov3D_precomp = cov3D_precomp)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # Loss
@@ -109,24 +117,24 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Densification
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
-                gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-                gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
+                # scene.getMaxRadii2D()[visibility_filter] = torch.max(scene.getMaxRadii2D()[visibility_filter], radii[visibility_filter]) # TODO: MODIFY
+                scene.update_max_radii2D(radii, visibility_filter, masks)
+                scene.add_densification_stats(viewspace_point_tensor, visibility_filter, masks)
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                    gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold)
+                    scene.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold)
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
-                    gaussians.reset_opacity()
+                    scene.reset_opacity()
 
             # Optimizer step
             if iteration < opt.iterations:
-                gaussians.optimizer.step()
-                gaussians.optimizer.zero_grad(set_to_none = True)
+                scene.optimizer_step()
 
-            if (iteration in checkpoint_iterations):
-                print("\n[ITER {}] Saving Checkpoint".format(iteration))
-                torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+            # if (iteration in checkpoint_iterations):
+            #     print("\n[ITER {}] Saving Checkpoint".format(iteration))
+            #     torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
@@ -168,7 +176,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 gts = torch.tensor([], device="cuda")
                 l1_test, psnr_test = [], []
                 for idx, viewpoint in enumerate(config['cameras']):
-                    image = torch.clamp(renderFunc(viewpoint, scene.getGaussians(), *renderArgs)["render"], 0.0, 1.0)
+                    # image = torch.clamp(renderFunc(viewpoint, scene.getGaussians(), *renderArgs)["render"], 0.0, 1.0)
+                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
+                    image = torch.clamp(renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)["render"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     l1_test.append(l1_loss(image, gt_image))
                     psnr_test.append(psnr(image, gt_image).mean())

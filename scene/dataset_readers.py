@@ -50,6 +50,8 @@ class SceneInfo(NamedTuple):
     nerf_normalization: dict
     ply_path: str
     max_level: int = 16
+    depth_min: float = 0.01
+    depth_max: float = 1000
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
@@ -501,7 +503,7 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
         colors = np.concatenate(color_buffers, axis=0)
         normals = np.zeros_like(positions)
         pcds.append(BasicPointCloud(positions, colors[:,:3] / 255.0, normals))
-
+    
     scene_info = SceneInfo(point_cloud=pcds,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
