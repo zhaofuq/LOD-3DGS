@@ -10,3 +10,6 @@
 [submodule "PotreeConverter"]
 	path = PotreeConverter
 	url = https://github.com/zhaofuq/PotreeConverter.git
+[submodule "submodules/diff-gaussian-rasterization-sig-depth/third_party/glm"]
+	path = submodules/diff-gaussian-rasterization-sig-depth/third_party/glm
+	url = git@github.com:g-truc/glm.git
