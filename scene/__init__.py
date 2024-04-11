@@ -25,7 +25,7 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args : ModelParams, load_iteration=-1, shuffle=True, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -33,7 +33,7 @@ class Scene:
         self.loaded_iter = None
         self.level = 0
         
-        if load_iteration:
+        if os.path.exists(os.path.join(self.model_path, "point_cloud")):
             if load_iteration == -1:
                 self.loaded_iter = searchForMaxIteration(os.path.join(self.model_path, "point_cloud"))
             else:
@@ -97,9 +97,7 @@ class Scene:
                                                             "level_{}.ply".format(level)))
             else:
                 self.gaussians[level].create_from_pcd(scene_info.point_cloud[level], self.cameras_extent)
-            
-            # TODO: construct the depth range between all training cameras and each octree nodes/each points?
-            # range = depth_max - depth_min, depth_min = depth_min + 0.05 * range, depth_max = depth_min + 0.95 * range
+
             for cam in self.train_cameras[1.0]:
                 xyz = self.gaussians[level].get_xyz.detach()
                 depth_z = self.get_z_depth(xyz, cam.world_view_transform)
@@ -189,9 +187,6 @@ class Scene:
             self.gaussians[level].max_radii2D[level_visibility_filter] = torch.max(self.gaussians[level].max_radii2D[level_visibility_filter], level_radii[level_visibility_filter])
             level_start += level_offset
 
-    def getMaxRadii2D(self):
-        return self.gaussians[-1].max_radii2D # TODO: MODIFY
-
     def training_setup(self, args):
         for level in range(self.max_level + 1):
             self.gaussians[level].training_setup(args)
@@ -224,7 +219,10 @@ class Scene:
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         for level in range(self.max_level + 1):
-            self.gaussians[level].densify_and_prune(max_grad, min_opacity, extent, max_screen_size)
+            scale = np.log(self.max_level - level + 1.0) + 1.0
+            if max_screen_size:
+                max_screen_size = max_screen_size * scale
+            self.gaussians[level].densify_and_prune(max_grad * scale, min_opacity, extent * scale, max_screen_size)
     
     def reset_opacity(self):
         for level in range(self.max_level + 1):
@@ -235,37 +233,36 @@ class Scene:
             self.gaussians[level].optimizer.step()
             self.gaussians[level].optimizer.zero_grad(set_to_none = True)
 
-    def get_gaussuian_parameters(self, viewpoint, compute_cov3D_python, scaling_modifier = 1.0):
-        xyz, features, opacity, scales, rotations, cov3D_precomp, filters = [], [], [], [], [], [], []
-        for level in range(self.max_level + 1):
-            xyz.append(self.gaussians[level].get_xyz)
-            features.append(self.gaussians[level].get_features)
-            opacity.append(self.gaussians[level].get_opacity)
-            scales.append(self.gaussians[level].get_scaling)
-            rotations.append(self.gaussians[level].get_rotation)
-            if compute_cov3D_python:
-                cov3D_precomp.append(self.gaussians[-1].get_covariance(scaling_modifier))
-            
-            # L = (Lmax + 1) * Exp(-Beta * Z/Zmax), Beta = ln(Zmax+1)
-            depth = self.get_z_depth(self.gaussians[level].get_xyz.detach(), viewpoint)
-            act_level = (self.max_level + 1) * torch.exp(-1.0 * self.beta * torch.abs(depth) / self.depth_max)
-            act_level = torch.clamp(act_level, min=0, max = self.max_level)
-            filters.append(torch.where(act_level >= level, True, False))
-            
-        active_sh_degree, max_sh_degree = self.gaussians[-1].active_sh_degree, self.gaussians[-1].max_sh_degree
-        xyz = torch.cat(xyz, dim=0)
-        features = torch.cat(features, dim=0)
-        opacity = torch.cat(opacity, dim=0)
-        scales = torch.cat(scales, dim=0)
-        rotations = torch.cat(rotations, dim=0)
-        filters = torch.cat(filters, dim=0)
+
+    def get_gaussian_parameters(self, viewpoint, compute_cov3D_python, scaling_modifier=1.0, random=-1):
+
+        levels = range(self.max_level + 1)
+        get_attrs = lambda attr: [getattr(self.gaussians[level], attr) for level in levels]
+        xyz, features, opacity, scales, rotations = map(get_attrs, ['get_xyz', 'get_features', 'get_opacity', 'get_scaling', 'get_rotation'])
+
+        # Compute cov3D_precomp if necessary
+        cov3D_precomp = [self.gaussians[-1].get_covariance(scaling_modifier)] * len(xyz) if compute_cov3D_python else None
+
+        # Define activation levels based on 'random' parameter
+        if random < 0:
+            depths = [self.get_z_depth(xyz_lvl.detach(), viewpoint) for xyz_lvl in xyz]
+            act_levels = [torch.clamp((self.max_level + 1) * torch.exp(-1.0 * self.beta * torch.abs(depth) / self.depth_max), 0, self.max_level) for depth in depths]
+            filters = [act_level >= level for act_level, level in zip(act_levels, levels)]
+        else:
+            filters = [torch.full_like(xyz[level][:,0], level == random, dtype=torch.bool) for level in levels]
+
+        # Concatenate all attributes
+        concat_attrs = lambda attrs: torch.cat(attrs, dim=0)
+        xyz, features, opacity, scales, rotations, filters = map(concat_attrs, [xyz, features, opacity, scales, rotations, filters])
+
+        # Apply filters to all attributes
+        filtered = lambda attr: attr[filters]
+        xyz, features, opacity, scales, rotations = map(filtered, [xyz, features, opacity, scales, rotations])
 
         if compute_cov3D_python:
-            cov3D_precomp = torch.cat(cov3D_precomp, dim=0)
-            cov3D_precomp = cov3D_precomp[filters]
-        else:
-            cov3D_precomp = None
+            cov3D_precomp = filtered(concat_attrs(cov3D_precomp))
 
-        return xyz[filters], features[filters], opacity[filters], scales[filters], rotations[filters], cov3D_precomp, active_sh_degree, max_sh_degree, filters
+        # Active and maximum spherical harmonics degrees
+        active_sh_degree, max_sh_degree = self.gaussians[-1].active_sh_degree, self.gaussians[-1].max_sh_degree
 
-    
+        return xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, filters

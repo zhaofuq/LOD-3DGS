@@ -32,10 +32,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     scene = Scene(dataset)
-    # TODO: Modify the following gaussians to be a list of GaussianModel objects, and modify render function to accept a list of Gaussian parameters
-    # gaussians = [GaussianModel, ....], render(...gaussians) -> render(..., xyz, opacity, covariance, ...)
-    # xyz, opacity, covariance... = scene.getGaussians(viewpoint_cam): extract the parameters of different levels of gaussians by viewpoint_cam
-
     scene.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -48,6 +44,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     iter_end = torch.cuda.Event(enable_timing = True)
 
     viewpoint_stack = None
+    level_stack = None
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -60,7 +57,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
                 if custom_cam != None:
                     # net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
-                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python, scaling_modifer)
+                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python, scaling_modifer)
                     net_image = render(custom_cam,  xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, pipe, background, scaling_modifer, cov3D_precomp = cov3D_precomp)
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)
@@ -82,12 +79,17 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             viewpoint_stack = scene.getTrainCameras().copy()
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack)-1))
 
+        # Pick a random Level
+        if not level_stack:
+            level_stack = list(range(-scene.max_level, scene.max_level + 1))
+        random_level = level_stack.pop(randint(0, len(level_stack)-1))
+  
         # Render
         if (iteration - 1) == debug_from:
             pipe.debug = True
         
         # render_pkg = render(viewpoint_cam, gaussians, pipe, background)
-        xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python)
+        xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint_cam.world_view_transform, pipe.compute_cov3D_python, random=random_level)
         render_pkg = render(viewpoint_cam,  xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, pipe, background, cov3D_precomp = cov3D_precomp)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
         depth = warpped_depth(render_pkg["depth"]) # TODO: render_pkg not checked
@@ -128,7 +130,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Densification
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
-                # scene.getMaxRadii2D()[visibility_filter] = torch.max(scene.getMaxRadii2D()[visibility_filter], radii[visibility_filter]) # TODO: MODIFY
                 scene.update_max_radii2D(radii, visibility_filter, masks)
                 scene.add_densification_stats(viewspace_point_tensor, visibility_filter, masks)
 
@@ -188,15 +189,22 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 l1_test, psnr_test = [], []
                 for idx, viewpoint in enumerate(config['cameras']):
                     # image = torch.clamp(renderFunc(viewpoint, scene.getGaussians(), *renderArgs)["render"], 0.0, 1.0)
-                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussuian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
+                    xyz, features, opacity, scales, rotations, cov3D_precomp, active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
                     image = torch.clamp(renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)["render"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     l1_test.append(l1_loss(image, gt_image))
                     psnr_test.append(psnr(image, gt_image).mean())
-                    if tb_writer and (idx < 5):
-                        tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image[None], global_step=iteration)
+                    if tb_writer and (idx == 0):
+                        tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image.unsqueeze(0), global_step=iteration)
                         if iteration == testing_iterations[0]:
-                            tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name), gt_image, global_step=iteration)
+                            tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name), gt_image.unsqueeze(0), global_step=iteration)
+                for level in range(scene.max_level + 1):
+                    viewpoint = config['cameras'][0]
+                    xyz, features, opacity, scales, rotations, cov3D_precomp, \
+                        active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python, random=level)
+                    image = torch.clamp(renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)["render"], 0.0, 1.0)
+                    if tb_writer:
+                        tb_writer.add_images(config['name'] + "_view_{}/level_{}".format(viewpoint.image_name, level), image.unsqueeze(0), global_step=iteration)
 
                 l1_test = sum(l1_test) / len(l1_test)
                 psnr_test = sum(psnr_test) / len(psnr_test)     
@@ -220,8 +228,8 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[1_000, 5_000, 10_000, 20_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 5_000, 10_000, 20_000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[1_000, 10_000, 20_000, 30_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[1_000, 10_000, 20_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
