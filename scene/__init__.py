@@ -219,7 +219,7 @@ class Scene:
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         for level in range(self.max_level + 1):
-            scale = np.log(self.max_level - level + 1.0) + 1.0
+            scale = 2**(self.max_level - level)   #np.log(self.max_level - level + 1.0) + 1.0
             if max_screen_size:
                 max_screen_size = max_screen_size * scale
             self.gaussians[level].densify_and_prune(max_grad * scale, min_opacity, extent * scale, max_screen_size)
@@ -247,7 +247,8 @@ class Scene:
         if random < 0:
             depths = [self.get_z_depth(xyz_lvl.detach(), viewpoint) for xyz_lvl in xyz]
             act_levels = [torch.clamp((self.max_level + 1) * torch.exp(-1.0 * self.beta * torch.abs(depth) / self.depth_max), 0, self.max_level) for depth in depths]
-            filters = [act_level >= level for act_level, level in zip(act_levels, levels)]
+            act_levels = [torch.floor(level) for level in act_levels]
+            filters = [act_level == level for act_level, level in zip(act_levels, levels)]
         else:
             filters = [torch.full_like(xyz[level][:,0], level == random, dtype=torch.bool) for level in levels]
 
