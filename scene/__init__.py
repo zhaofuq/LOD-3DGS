@@ -103,8 +103,8 @@ class Scene:
                 depth_z = self.get_z_depth(xyz, cam.world_view_transform)
                 self.depth_min = torch.min(self.depth_min, torch.max(depth_z.min(), torch.tensor(0.0)))
                 self.depth_max = torch.max(self.depth_max, depth_z.max())
-        self.depth_max = 0.95 * (self.depth_max - self.depth_min) + self.depth_min
-        self.depth_min = 0.05 * (self.depth_max - self.depth_min) + self.depth_min
+        self.depth_max = 0.95 * 1.3 * (self.depth_max - self.depth_min) + self.depth_min
+        self.depth_min = 0.05 * 1.3 * (self.depth_max - self.depth_min) + self.depth_min
         print("[ Scene ] Initialize scene depth range at [{:2f}, {:2f}]".format(self.depth_min.cpu(), self.depth_max.cpu()))
         et = time.time()
         print("[ Scene ] Gaussian Model creation took {} seconds".format(et - st))
@@ -120,7 +120,7 @@ class Scene:
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
         for level in range(self.max_level+1):
             self.gaussians[level].save_ply(os.path.join(point_cloud_path, "level_{}.ply".format(level)))
-        self.save_full_ply(os.path.join(point_cloud_path, "point_cloud.ply".format(level)))
+        # self.save_full_ply(os.path.join(point_cloud_path, "point_cloud.ply".format(level)))
 
     def construct_list_of_attributes(self):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
@@ -219,7 +219,7 @@ class Scene:
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         for level in range(self.max_level + 1):
-            scale = 2**(self.max_level - level)   #np.log(self.max_level - level + 1.0) + 1.0
+            scale = np.min([np.sqrt(2) ** (self.max_level - level + 1), 4.0])   #np.log(self.max_level - level + 1.0) + 1.0
             if max_screen_size:
                 max_screen_size = max_screen_size * scale
             self.gaussians[level].densify_and_prune(max_grad * scale, min_opacity, extent * scale, max_screen_size)
