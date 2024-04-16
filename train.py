@@ -80,9 +80,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack)-1))
 
         # Pick a random Level
-        if not level_stack:
-            level_stack = list(range(-scene.max_level, scene.max_level + 1))
-        random_level = level_stack.pop(randint(0, len(level_stack)-1))
+        # if not level_stack:
+        #     level_stack = list(range(-scene.max_level, scene.max_level + 1))
+        # random_level = level_stack.pop(randint(0, len(level_stack)-1))
+        random_level = -1
   
         # Render
         if (iteration - 1) == debug_from:
@@ -175,6 +176,8 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
         tb_writer.add_scalar('iter_time', elapsed, iteration)
+        tb_writer.add_scalar('memory/memory_allocated', torch.cuda.memory_allocated('cuda') / (1024 ** 3), iteration)
+        tb_writer.add_scalar('memory/memory_reserved', torch.cuda.memory_reserved('cuda') / (1024 ** 3), iteration)
 
     # Report test and samples of training set
     if iteration in testing_iterations:
