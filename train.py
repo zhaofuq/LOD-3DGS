@@ -82,11 +82,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Pick a random Level
         # if not level_stack:
-<<<<<<< HEAD
-        #     level_stack = list(range(-scene.max_level, scene.max_level + 1))
-=======
         #     level_stack = list(range(-1, scene.max_level + 1))
->>>>>>> main
         # random_level = level_stack.pop(randint(0, len(level_stack)-1))
         random_level =-1
   
