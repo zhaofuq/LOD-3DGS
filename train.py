@@ -84,7 +84,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # if not level_stack:
         #     level_stack = list(range(-scene.max_level, scene.max_level + 1))
         # random_level = level_stack.pop(randint(0, len(level_stack)-1))
-        random_level = -1
+        random_level =-1
   
         # Render
         if (iteration - 1) == debug_from:
