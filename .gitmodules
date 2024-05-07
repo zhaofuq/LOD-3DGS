@@ -7,6 +7,6 @@
 [submodule "SIBR_viewers"]
 	path = LoD_SIBR_viewers
 	url = https://github.com/zhaofuq/LOD-SIBR-Viewer.git
-[submodule "PotreeConverter"]
+[submodule "PotreeConverter"]W
 	path = PotreeConverter
 	url = https://github.com/zhaofuq/PotreeConverter.git
