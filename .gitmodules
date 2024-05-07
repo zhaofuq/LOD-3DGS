@@ -1,15 +1,12 @@
 [submodule "submodules/simple-knn"]
 	path = submodules/simple-knn
 	url = https://github.com/zhaofuq/simple-knn.git
-	branch = main
 [submodule "submodules/diff-gaussian-rasterization"]
 	path = submodules/diff-gaussian-rasterization
 	url = https://github.com/zhaofuq/diff-gaussian-rasterization.git
-	branch = main
 [submodule "SIBR_viewers"]
 	path = SIBR_viewers
 	url = https://github.com/zhaofuq/LOD-SIBR-Viewer.git
-	branch = main
 [submodule "PotreeConverter"]
 	path = PotreeConverter
 	url = https://github.com/zhaofuq/PotreeConverter.git
