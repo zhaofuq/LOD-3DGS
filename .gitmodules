@@ -7,9 +7,9 @@
 	url = https://github.com/zhaofuq/diff-gaussian-rasterization.git
 	branch = main
 [submodule "SIBR_viewers"]
-	path = LoD_SIBR_viewers
+	path = SIBR_viewers
 	url = https://github.com/zhaofuq/LOD-SIBR-Viewer.git
 	branch = main
-[submodule "PotreeConverter"]W
+[submodule "PotreeConverter"]
 	path = PotreeConverter
 	url = https://github.com/zhaofuq/PotreeConverter.git
