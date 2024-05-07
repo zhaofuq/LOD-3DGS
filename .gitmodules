@@ -1,12 +1,12 @@
 [submodule "submodules/simple-knn"]
 	path = submodules/simple-knn
-	url = https://gitlab.inria.fr/bkerbl/simple-knn.git
+	url = https://github.com/zhaofuq/simple-knn.git
 [submodule "submodules/diff-gaussian-rasterization"]
 	path = submodules/diff-gaussian-rasterization
-	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization
+	url = https://github.com/zhaofuq/diff-gaussian-rasterization.git
 [submodule "SIBR_viewers"]
-	path = SIBR_viewers
-	url = https://gitlab.inria.fr/sibr/sibr_core.git
+	path = LoD_SIBR_viewers
+	url = https://github.com/zhaofuq/LOD-SIBR-Viewer.git
 [submodule "PotreeConverter"]
 	path = PotreeConverter
 	url = https://github.com/zhaofuq/PotreeConverter.git

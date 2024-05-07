@@ -219,7 +219,7 @@ class Scene:
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         for level in range(self.max_level + 1):
-            scale = np.min([np.sqrt(2) ** (self.max_level - level + 1), 4.0])   #np.log(self.max_level - level + 1.0) + 1.0
+            scale = np.min([np.sqrt(2) ** (self.max_level - level), 4.0])   #np.log(self.max_level - level + 1.0) + 1.0
             if max_screen_size:
                 max_screen_size = max_screen_size * scale
             self.gaussians[level].densify_and_prune(max_grad * scale, min_opacity, extent * scale, max_screen_size)
