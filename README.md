@@ -94,6 +94,6 @@ git checkout fossa_compatibility
 
 ## GarageWorld Dataset
 Using our polar divide, we build GarageWorld, the first large-scale garage dataset.
+![image](assets/device.jpg)
 
-![image](assets/garageworld.jpg)
 

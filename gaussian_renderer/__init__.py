@@ -74,7 +74,7 @@ def render(viewpoint_camera, xyz, features, opacity, scales, rotations, active_s
     # scaling / rotation by the rasterizer.
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii = rasterizer(
+    rendered_image, depth, radii = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -89,4 +89,5 @@ def render(viewpoint_camera, xyz, features, opacity, scales, rotations, active_s
     return {"render": rendered_image,
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
-            "radii": radii}
+            "radii": radii,
+            "depth": depth}

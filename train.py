@@ -183,12 +183,16 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     # image = torch.clamp(renderFunc(viewpoint, scene.getGaussians(), *renderArgs)["render"], 0.0, 1.0)
                     xyz, features, opacity, scales, rotations, cov3D_precomp, \
                         active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
-                    image = torch.clamp(renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)["render"], 0.0, 1.0)
+                    results = renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)
+                    image = torch.clamp(results["render"], 0.0, 1.0)
+                    depth = results["depth"]
+                    depth = (depth - depth.min()) / (depth.max() - depth.min())
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     l1_test.append(l1_loss(image, gt_image))
                     psnr_test.append(psnr(image, gt_image).mean())
                     if tb_writer and (idx == 0):
                         tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name), image.unsqueeze(0), global_step=iteration)
+                        tb_writer.add_images(config['name'] + "_view_{}/depth".format(viewpoint.image_name), depth.unsqueeze(0), global_step=iteration)
                         if iteration == testing_iterations[0]:
                             tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name), gt_image.unsqueeze(0), global_step=iteration)
                 for level in range(scene.max_level + 1):
