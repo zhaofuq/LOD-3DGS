@@ -1,7 +1,7 @@
 # LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives
-<!-- Jiadi Cui*, Junming Cao*, Fuqiang Zhao*, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang, Jingyi Yu (* indicates equal contribution) -->
+Jiadi Cui*, Junming Cao*, Fuqiang Zhao*, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang†, Jingyi Yu†
 
-[Project page](https://letsgo.github.io/) | [Paper](https://letsgo.github.io/) | [Video](https://letsgo.github.io/) | [LOD Viewer (SIBR)](https://letsgo.github.io/) | [GarageWorld Dataset](https://letsgo.github.io/) <br>
+[Project page](https://zhaofuq.github.io/LetsGo/) | [Paper](https://arxiv.org/pdf/2404.09748) | [Video](https://www.youtube.com/watch?v=fs42UBKvGRw) | [LOD Viewer (SIBR)](https://zhaofuq.github.io/LetsGo/) | [Web Viewer](https://zhaofuq.github.io/LetsGo/)| [GarageWorld Dataset](https://zhaofuq.github.io/LetsGo/) <br>
 
 ![Teaser image](assets/teaser.jpg)
 
@@ -23,18 +23,25 @@ Experimental results on our dataset, along with ScanNet++ and KITTI-360, demonst
 # clone repo
 git clone https://github.com/zhaofuq/LOD-3DGS.git --recursive
 
-# create a new environment
+# create a new python environment
 conda env create --file environment.yml
 conda activate lod-3dgs
+
+# build PotreeConverter for Multi-Resolution Pointcloud
+cd PotreeConverter 
+cmake . -B build
+cmake --build build --config Release
 ```
 
 ## Training
 To train a scene in our GarageWorld dataset, simply use
 ```bash
 python train.py -s <path to GarageWorld scene with COLMAP format> \
+    --use_lod \
+    --sh_degree 2 \
+    --densification_interval 10000 \
     --iterations 300000 \
-    -opacity_reset_interval 300000 \
-    --sh_degree 2 --densification_interval 10000 \
+    -opacity_reset_interval 300000 \ 
     --densify_until_iter 200000 \
     --data_device cpu \
     -r 1
@@ -46,7 +53,7 @@ To render a trained model, simply use
 python render.py -m <path to model path> 
 ```
 
-## Interactive Viewers
+## Interactive LOD Viewers
 Our viewing solutions are based on the SIBR framework, developed by the GRAPHDECO group for several novel-view synthesis projects. We intergrate LOD rendering technique into SIBR framework to make faster rendering effects.
 
 ![image](assets/Ablation_LOD.jpg)
@@ -93,7 +100,23 @@ git checkout fossa_compatibility
 ```
 
 ## GarageWorld Dataset
+### Self-designed Polar Scanning System
 Using our polar divide, we build GarageWorld, the first large-scale garage dataset.
 ![image](assets/device.jpg)
 
 
+### GarageWorld Dataset
+![image](assets/datagallery.jpg)
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{cui2024letsgo,
+        title={LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives},
+        author={Jiadi Cui, Junming Cao, Fuqiang Zhao, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang, Jingyi Yu},
+        journal={arXiv preprint arXiv:2404.09748},
+        year={2024}
+    }
+</code></pre>
+  </div>
+</section>

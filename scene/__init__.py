@@ -43,8 +43,12 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
         if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Octree"](args.source_path, args.images, args.eval)
-            # scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
+            if args.use_lod:
+                print("[ Scene ] Found sparse folder, assuming Octree data set!")
+                scene_info = sceneLoadTypeCallbacks["Octree"](args.source_path, args.images, args.eval)
+            else:
+                print("[ Scene ] Found sparse folder, assuming Colmap data set!")
+                scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("[ Scene ] Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)

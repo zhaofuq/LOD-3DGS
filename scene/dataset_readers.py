@@ -155,15 +155,9 @@ def storeLas(path, xyz, rgb):
 
     # 1. Create a Las
     header = laspy.LasHeader(point_format=2, version="1.4")
-
-    # color_att = ["R", "G", "B"]
-    # for c in color_att:
-    #     header.add_extra_dim(laspy.ExtraBytesParams(name=c, type=np.float32))
-
-    # 2. Create a Las
     out_las = laspy.LasData(header)
 
-    # 3. Fill the Las
+    # 2. Fill the Las
     out_las.x = xyz[:, 0]
     out_las.y = xyz[:, 1]
     out_las.z = xyz[:, 2]
@@ -175,15 +169,8 @@ def storeLas(path, xyz, rgb):
     out_las.green = normalize_color(rgb[:, 1])
     out_las.blue = normalize_color(rgb[:, 2])
 
-    # Fill the color attributes
-    # for c in color_att:
-    #     setattr(out_las, c, rgb[:, color_att.index(c)])
-
     # Save the LAS file
     out_las.write(path)
-
-
-
 
 def readColmapSceneInfo(path, images, eval, llffhold=8):
     try:
@@ -223,12 +210,14 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
     else:
         print("[ Dataloader ] Found .ply point cloud, skipping conversion.")
         pcd = fetchPly(ply_path)
-
-    scene_info = SceneInfo(point_cloud=pcd,
+    
+    pcds = [pcd]
+    scene_info = SceneInfo(point_cloud=pcds,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
-                           ply_path=ply_path)
+                           ply_path=ply_path,
+                           max_level=0)
     return scene_info
 
 def readCamerasFromTransforms(path, transformsfile, white_background, extension=".png"):
@@ -355,11 +344,13 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
     except:
         pcd = None
 
-    scene_info = SceneInfo(point_cloud=pcd,
+    pcds = [pcd]
+    scene_info = SceneInfo(point_cloud=pcds,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
-                           ply_path=ply_path)
+                           ply_path=ply_path,
+                           max_level=0)
     return scene_info
 
 """function to save the octree class into ply file and store into disk"""
