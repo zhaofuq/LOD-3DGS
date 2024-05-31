@@ -38,6 +38,8 @@ class CameraInfo(NamedTuple):
     image: np.array
     image_path: str
     image_name: str
+    depth_path: str
+    depth: np.array
     width: int
     height: int
     cx: float
@@ -76,7 +78,7 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
+def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_folder = None):
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
         sys.stdout.write('\r')
@@ -107,11 +109,20 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
             assert False, "[ ERROR ] Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
 
         image_path = os.path.join(images_folder, os.path.basename(extr.name))
-        image_name = os.path.basename(image_path).split(".")[0]
+        image_name = os.path.splitext(os.path.basename(image_path))[0]
         image = Image.open(image_path)
 
+        if depths_folder is not None:
+            depth_path = os.path.join(depths_folder, image_name + ".png")
+            depth = Image.open(depth_path)
+            depth_copy = depth.copy()
+            depth.close()
+        else:
+            depth_path = None
+            depth_copy = None
+
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                              image_path=image_path, image_name=image_name, width=width, height=height, cx = cx, cy = cy)
+                              image_path=image_path, image_name=image_name, depth_path=depth_path, depth = depth_copy, width=width, height=height, cx = cx, cy = cy)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
@@ -172,7 +183,10 @@ def storeLas(path, xyz, rgb):
     # Save the LAS file
     out_las.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
+
+
+
+def readColmapSceneInfo(path, images, depths, eval, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -185,7 +199,9 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, 
+                                           images_folder=os.path.join(path, reading_dir),
+                                           depths_folder=os.path.join(path, depths) if depths != "" else None)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
@@ -391,7 +407,7 @@ def recover_octree(octree_path, node, level):
                 if child is not None:
                     recover_octree(octree_path, child, level + 1)  
 
-def readoctreeColmapInfo(path, images, eval, llffhold=8):
+def readoctreeColmapInfo(path, images, depths, eval, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -404,7 +420,9 @@ def readoctreeColmapInfo(path, images, eval, llffhold=8):
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
     reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, 
+                                           images_folder=os.path.join(path, reading_dir),
+                                           depths_folder=os.path.join(path, depths) if depths != "" else None)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:

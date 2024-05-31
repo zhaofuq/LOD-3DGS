@@ -45,10 +45,10 @@ class Scene:
         if os.path.exists(os.path.join(args.source_path, "sparse")):
             if args.use_lod:
                 print("[ Scene ] Found sparse folder, assuming Octree data set!")
-                scene_info = sceneLoadTypeCallbacks["Octree"](args.source_path, args.images, args.eval)
+                scene_info = sceneLoadTypeCallbacks["Octree"](args.source_path, args.images, args.depths, args.eval)
             else:
                 print("[ Scene ] Found sparse folder, assuming Colmap data set!")
-                scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
+                scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("[ Scene ] Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)
@@ -224,6 +224,8 @@ class Scene:
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         for level in range(self.max_level + 1):
             scale = np.min([np.sqrt(2) ** (self.max_level - level), 4.0])   #np.log(self.max_level - level + 1.0) + 1.0
+            if level == self.max_level: # sam added to try to avoid big artifacets
+                scale = 0.2
             if max_screen_size:
                 max_screen_size = max_screen_size * scale
             self.gaussians[level].densify_and_prune(max_grad * scale, min_opacity, extent * scale, max_screen_size)

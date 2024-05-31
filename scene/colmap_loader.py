@@ -259,17 +259,14 @@ def read_extrinsics_text(path):
                 tvec = np.array(tuple(map(float, elems[5:8])))
                 camera_id = int(elems[8])
                 image_name = elems[9]
-                elems = fid.readline().split()
-                if len(elems) == 2:
-                    xys = None
-                    point3D_ids = None
-                elif len(elems) == 10:
-                    xys = None
-                    point3D_ids = None
-                else:
+                try:
+                    elems = fid.readline().split()
                     xys = np.column_stack([tuple(map(float, elems[0::3])),
                                         tuple(map(float, elems[1::3]))])
                     point3D_ids = np.array(tuple(map(int, elems[2::3])))
+                except:
+                    xys = None
+                    point3D_ids = None
                 images[image_id] = Image(
                     id=image_id, qvec=qvec, tvec=tvec,
                     camera_id=camera_id, name=image_name,

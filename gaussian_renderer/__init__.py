@@ -74,7 +74,7 @@ def render(viewpoint_camera, xyz, features, opacity, scales, rotations, active_s
     # scaling / rotation by the rasterizer.
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, depth, radii = rasterizer(
+    rendered_image, rendered_depth, rendered_final_T,  radii = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -87,7 +87,8 @@ def render(viewpoint_camera, xyz, features, opacity, scales, rotations, active_s
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
     return {"render": rendered_image,
+            "depth": rendered_depth, 
+            "final_T": rendered_final_T,
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
-            "radii": radii,
-            "depth": depth}
+            "radii": radii}
