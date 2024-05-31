@@ -115,14 +115,12 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_fold
         if depths_folder is not None:
             depth_path = os.path.join(depths_folder, image_name + ".png")
             depth = Image.open(depth_path)
-            depth_copy = depth.copy()
-            depth.close()
         else:
             depth_path = None
-            depth_copy = None
+            depth = None
 
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                              image_path=image_path, image_name=image_name, depth_path=depth_path, depth = depth_copy, width=width, height=height, cx = cx, cy = cy)
+                              image_path=image_path, image_name=image_name, depth_path=depth_path, depth = depth, width=width, height=height, cx = cx, cy = cy)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
@@ -182,9 +180,6 @@ def storeLas(path, xyz, rgb):
 
     # Save the LAS file
     out_las.write(path)
-
-
-
 
 def readColmapSceneInfo(path, images, depths, eval, llffhold=8):
     try:
