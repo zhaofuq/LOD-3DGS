@@ -20,6 +20,7 @@ from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 from plyfile import PlyData, PlyElement
+from utils.system_utils import mkdir_p
 
 class Scene:
 
@@ -144,6 +145,8 @@ class Scene:
         return l
 
     def save_full_ply(self, path):
+        mkdir_p(os.path.dirname(path))
+
         xyz, f_dc, f_rest, opacity, scales, rotations = [], [], [], [], [], []
         for level in range(self.max_level + 1):
             xyz.append(self.gaussians[level]._xyz)
