@@ -99,27 +99,31 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         Ll1 = l1_loss(image, gt_image)
+        rgb_loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        depth_loss = 0.0
         if viewpoint_cam.depth is not None:
             gt_depth = viewpoint_cam.depth.cuda()
-            Ll1_depth = l1_loss(depth, gt_depth)
-        else:
-            Ll1_depth = 0.0
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image)) + 0.8 * Ll1_depth
+            depth_loss = 0.8 * l1_loss(depth, gt_depth)
+   
+        loss = rgb_loss + depth_loss
         loss.backward()
 
         iter_end.record()
 
         with torch.no_grad():
             # Progress bar
-            ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
+            ema_loss_for_log = 0.4 * rgb_loss.item() + 0.6 * ema_loss_for_log
+            ema_depth_loss_for_log = 0.0
+            if viewpoint_cam.depth is not None:
+                ema_depth_loss_for_log = 0.4 * depth_loss.item()  + 0.6 * ema_depth_loss_for_log
             if iteration % 10 == 0:
-                progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}"})
+                progress_bar.set_postfix({"RGB Loss": f"{ema_loss_for_log:.{4}f}", "Depth Loss": f"{ema_depth_loss_for_log:.{4}f}"})
                 progress_bar.update(10)
             if iteration == opt.iterations:
                 progress_bar.close()
 
             # Log and save
-            training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
+            training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
             if (iteration in saving_iterations):
                 print("[ Training ] [ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
@@ -167,10 +171,16 @@ def prepare_output_and_logger(args):
         print("[ Training ] Tensorboard not available: not logging progress")
     return tb_writer
 
-def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
+def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
     if tb_writer:
-        tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
-        tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
+        tb_writer.add_scalar('train_loss_patches/rgb_loss', rgb_loss.item(), iteration)
+        if isinstance(depth_loss, torch.Tensor):
+            tb_writer.add_scalar('train_loss_patches/depth_loss', depth_loss.item(), iteration)
+            tb_writer.add_scalar('train_loss_patches/total_loss', rgb_loss.item() + depth_loss.item(), iteration)
+        else:
+            tb_writer.add_scalar('train_loss_patches/depth_loss', depth_loss, iteration)
+            tb_writer.add_scalar('train_loss_patches/total_loss', rgb_loss.item() + depth_loss, iteration)
+        
         tb_writer.add_scalar('iter_time', elapsed, iteration)
         tb_writer.add_scalar('memory/memory_allocated', torch.cuda.memory_allocated('cuda') / (1024 ** 3), iteration)
         tb_writer.add_scalar('memory/memory_reserved', torch.cuda.memory_reserved('cuda') / (1024 ** 3), iteration)
