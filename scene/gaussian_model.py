@@ -209,60 +209,6 @@ class GaussianModel:
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
     
-    def save_las(self, path):
-        mkdir_p(os.path.dirname(path))
-
-        xyz = self._xyz.detach().cpu().numpy()
-        # normals = np.zeros_like(xyz)
-        f_dc = self._features_dc.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
-        # f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
-        opacities = self._opacity.detach().cpu().numpy()
-        scale = self._scaling.detach().cpu().numpy()
-        rotation = self._rotation.detach().cpu().numpy()
-
-
-        # 1. Create a Las
-        header = laspy.LasHeader(point_format=2, version="1.4")
-
-        for i in range(f_dc.shape[1]):
-            header.add_extra_dim(laspy.ExtraBytesParams(name='f_dc_{}'.format(i), type=np.float32))
-
-        # for i in range(f_rest.shape[1]):
-        #     header.add_extra_dim(laspy.ExtraBytesParams(name='f_rest_{}'.format(i), type=np.float32))
-
-        header.add_extra_dim(laspy.ExtraBytesParams(name='opacity', type=np.float32))
-
-        for i in range(scale.shape[1]):
-            header.add_extra_dim(laspy.ExtraBytesParams(name='scale_{}'.format(i), type=np.float32))
-
-        for i in range(rotation.shape[1]):
-            header.add_extra_dim(laspy.ExtraBytesParams(name='rot_{}'.format(i), type=np.float32))
-
-        # 2. Create a Las
-        out_las = laspy.LasData(header)
-
-        # 3. Fill the Las
-        out_las.x = xyz[:, 0]
-        out_las.y = xyz[:, 1]
-        out_las.z = xyz[:, 2]
-        # Fill the extra attributes
-        for i in  range(f_dc.shape[1]):
-            setattr(out_las, f"f_dc_{i}", f_dc[:, i])
-        
-        # for i in  range(f_rest.shape[1]):
-        #     setattr(out_las, f"f_rest_{i}", f_rest[:, i])
-        
-        out_las.opacity = opacities[:, 0]
-
-        for i in  range(scale.shape[1]):
-            setattr(out_las, f"scale_{i}", scale[:, i])
-
-        for i in  range(rotation.shape[1]):
-            setattr(out_las, f"rot_{i}", rotation[:, i])
-
-        # Save the LAS file
-        out_las.write(path)
-
     def reset_opacity(self):
         opacities_new = inverse_sigmoid(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")

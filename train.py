@@ -103,7 +103,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         depth_loss = 0.0
         if viewpoint_cam.depth is not None:
             gt_depth = viewpoint_cam.depth.cuda()
-            depth_loss = 0.8 * l1_loss(depth, gt_depth)
+            depth_loss = 2.0 * l1_loss(depth, gt_depth)
    
         loss = rgb_loss + depth_loss
         loss.backward()
@@ -144,10 +144,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Optimizer step
             if iteration < opt.iterations:
                 scene.optimizer_step()
-
-            # if (iteration in checkpoint_iterations):
-            #     print("\n[ITER {}] Saving Checkpoint".format(iteration))
-            #     torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
@@ -197,7 +193,6 @@ def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed
                 gts = torch.tensor([], device="cuda")
                 l1_test, psnr_test = [], []
                 for idx, viewpoint in enumerate(config['cameras']):
-                    # image = torch.clamp(renderFunc(viewpoint, scene.getGaussians(), *renderArgs)["render"], 0.0, 1.0)
                     xyz, features, opacity, scales, rotations, cov3D_precomp, \
                         active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
                     results = renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)
@@ -205,6 +200,9 @@ def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed
                     depth = results["depth"]
                     depth = (depth - depth.min()) / (depth.max() - depth.min())
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
+                    if viewpoint.depth is not None:
+                        gt_depth = viewpoint.depth.to("cuda")
+                        gt_depth = (gt_depth - gt_depth.min()) / (gt_depth.max() - gt_depth.min())
                     l1_test.append(l1_loss(image, gt_image))
                     psnr_test.append(psnr(image, gt_image).mean())
                     if tb_writer and (idx == 0):
@@ -212,6 +210,8 @@ def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed
                         tb_writer.add_images(config['name'] + "_view_{}/depth".format(viewpoint.image_name), depth.unsqueeze(0), global_step=iteration)
                         if iteration == testing_iterations[0]:
                             tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name), gt_image.unsqueeze(0), global_step=iteration)
+                            if viewpoint.depth is not None:
+                                tb_writer.add_images(config['name'] + "_view_{}/ground_truth_depth".format(viewpoint.image_name), gt_depth.unsqueeze(0), global_step=iteration)
                 for level in range(scene.max_level + 1):
                     viewpoint = config['cameras'][0]  #[randint(0, len(config['cameras'])-1)]
                     xyz, features, opacity, scales, rotations, cov3D_precomp, \
@@ -219,10 +219,6 @@ def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed
                     image = torch.clamp(renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)["render"], 0.0, 1.0)
                     if tb_writer:
                         tb_writer.add_images(config['name'] + "_view_{}/level_{}".format(viewpoint.image_name, level), image.unsqueeze(0), global_step=iteration)
-                    # gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
-                    # l1_test.append(l1_loss(image, gt_image))
-                    # psnr_test.append(psnr(image, gt_image).mean())
-                    
 
                 l1_test = sum(l1_test) / len(l1_test)
                 psnr_test = sum(psnr_test) / len(psnr_test)     
