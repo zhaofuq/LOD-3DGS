@@ -12,7 +12,7 @@
 import os
 import torch
 from random import randint
-from utils.loss_utils import l1_loss, ssim
+from utils.loss_utils import l1_loss, l2_loss, ssim
 from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel
@@ -101,9 +101,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         Ll1 = l1_loss(image, gt_image)
         rgb_loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
         depth_loss = 0.0
+
         if viewpoint_cam.depth is not None:
             gt_depth = viewpoint_cam.depth.cuda()
-            depth_loss = 2.0 * l1_loss(depth, gt_depth)
+            depth_loss = 2.0 * l2_loss(depth, gt_depth)
    
         loss = rgb_loss + depth_loss
         loss.backward()
