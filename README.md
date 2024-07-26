@@ -39,9 +39,10 @@ To train a scene in our GarageWorld dataset, simply use
 python train.py -s <path to GarageWorld scene with COLMAP format> \
     --use_lod \
     --sh_degree 2 \
+    --depth depths \ # use for depth loss if contains depths folder.
     --densification_interval 10000 \
     --iterations 300000 \
-    -opacity_reset_interval 300000 \ 
+    --opacity_reset_interval 300000 \ 
     --densify_until_iter 200000 \
     --data_device cpu \
     -r 1
