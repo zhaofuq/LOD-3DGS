@@ -30,9 +30,11 @@ except ImportError:
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     first_iter = 0
-    tb_writer = prepare_output_and_logger(dataset)
     scene = Scene(dataset)
     scene.training_setup(opt)
+
+    dataset.depth_max = scene.depth_max.cpu().item()
+    tb_writer = prepare_output_and_logger(dataset)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         scene.restore(model_params, opt)
