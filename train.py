@@ -30,11 +30,27 @@ except ImportError:
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     first_iter = 0
+
+    # Set up output folder
+    if not dataset.model_path:
+        if os.getenv('OAR_JOB_ID'):
+            unique_str=os.getenv('OAR_JOB_ID')
+        else:
+            unique_str = str(uuid.uuid4())
+        dataset.model_path = os.path.join(dataset.source_path, "3D-Gaussian-Splatting", unique_str[0:10])
+    print("[ Training ] Output Folder: {}".format(dataset.model_path))
+    os.makedirs(dataset.model_path, exist_ok = True)
+
+    # Load dataset
     scene = Scene(dataset)
     scene.training_setup(opt)
 
+    # extract scene depth max
     dataset.depth_max = scene.depth_max.cpu().item()
+
+    # prepare logger and extract parameters
     tb_writer = prepare_output_and_logger(dataset)
+
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         scene.restore(model_params, opt)
@@ -149,16 +165,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 scene.optimizer_step()
 
 def prepare_output_and_logger(args):    
-    if not args.model_path:
-        if os.getenv('OAR_JOB_ID'):
-            unique_str=os.getenv('OAR_JOB_ID')
-        else:
-            unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join(args.source_path, "3D-Gaussian-Splatting", unique_str[0:10])
-
-    # Set up output folder
-    print("[ Training ] Output Folder: {}".format(args.model_path))
-    os.makedirs(args.model_path, exist_ok = True)
     with open(os.path.join(args.model_path, "cfg_args"), 'w') as cfg_log_f:
         cfg_log_f.write(str(Namespace(**vars(args))))
 

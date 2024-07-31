@@ -1,5 +1,5 @@
 # LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives
-Jiadi Cui*, Junming Cao*, Fuqiang Zhao*, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang†, Jingyi Yu†
+<!-- Jiadi Cui*, Junming Cao*, Fuqiang Zhao*, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang†, Jingyi Yu† -->
 
 [Project page](https://zhaofuq.github.io/LetsGo/) | [Paper](https://arxiv.org/pdf/2404.09748) | [Video](https://www.youtube.com/watch?v=fs42UBKvGRw) | [LOD Viewer (SIBR)](https://zhaofuq.github.io/LetsGo/) | [Web Viewer](https://zhaofuq.github.io/LetsGo/)| [GarageWorld Dataset](https://zhaofuq.github.io/LetsGo/) <br>
 
@@ -39,7 +39,7 @@ To train a scene in our GarageWorld dataset, simply use
 python train.py -s <path to GarageWorld scene with COLMAP format> \
     --use_lod \
     --sh_degree 2 \
-    --depth depths \ # use for depth loss if contains depths folder.
+    --depths depths \ # use for depth loss if contains depths folder.
     --densification_interval 10000 \
     --iterations 300000 \
     --opacity_reset_interval 300000 \ 
