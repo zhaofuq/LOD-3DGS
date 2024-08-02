@@ -218,7 +218,7 @@ Using our polar divide, we build GarageWorld, the first large-scale garage datas
 ### GarageWorld Dataset
 ![image](assets/datagallery.jpg)
 
-<section class="section" id="BibTeX">
+<!--  <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
     <h2 class="title">BibTeX</h2>
     <pre><code>@article{cui2024letsgo,
@@ -229,4 +229,4 @@ Using our polar divide, we build GarageWorld, the first large-scale garage datas
     }
 </code></pre>
   </div>
-</section>
+</section> -->
