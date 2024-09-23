@@ -27,7 +27,7 @@ git clone https://github.com/zhaofuq/LOD-3DGS.git --recursive
 conda env create --file environment.yml
 conda activate lod-3dgs
 
-# build PotreeConverter for Multi-Resolution Pointcloud
+# build PotreeConverter for Multi-Resolution Pointcloud, tested on windows
 cd PotreeConverter 
 cmake . -B build
 cmake --build build --config Release
