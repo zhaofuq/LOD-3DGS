@@ -34,7 +34,7 @@ cmake --build build --config Release
 ```
 
 ## Training
-To train a scene in our GarageWorld dataset, simply use
+We provide a small scale garage [sample dataset](https://drive.google.com/drive/folders/1sO8XHeHum3oiKC0sd7ZIm8LUSYf7JuR9). To train a scene in our GarageWorld dataset, simply use
 ```bash
 python train.py -s <path to GarageWorld scene with COLMAP format> \
     --use_lod \
