@@ -42,6 +42,8 @@ python train.py -s <path to GarageWorld scene with COLMAP format> \
     --depths depths \ # use for depth loss if contains depths folder.
     --densification_interval 10000 \
     --iterations 300000 \
+    --scaling_lr 0.0015 \
+    --position_lr_init 0.000016 \
     --opacity_reset_interval 300000 \ 
     --densify_until_iter 200000 \
     --data_device cpu \
