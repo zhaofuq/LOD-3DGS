@@ -1,7 +1,7 @@
 # LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives
 <!-- Jiadi Cui*, Junming Cao*, Fuqiang Zhao*, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang†, Jingyi Yu† -->
 
-[Project page](https://zhaofuq.github.io/LetsGo/) | [Paper](https://arxiv.org/pdf/2404.09748) | [Video](https://www.youtube.com/watch?v=fs42UBKvGRw) | [LOD Viewer (SIBR)](https://zhaofuq.github.io/LetsGo/) | [Web Viewer](https://zhaofuq.github.io/LetsGo/)| [GarageWorld Dataset](https://zhaofuq.github.io/LetsGo/) <br>
+[Project page](https://zhaofuq.github.io/LetsGo/) | [Paper](https://dl.acm.org/doi/pdf/10.1145/3687762) | [Video](https://www.youtube.com/watch?v=fs42UBKvGRw) | [LOD Viewer (SIBR)](https://zhaofuq.github.io/LetsGo/) | [Web Viewer](https://zhaofuq.github.io/LetsGo/)| [GarageWorld Dataset](https://zhaofuq.github.io/LetsGo/) <br>
 
 ![Teaser image](assets/teaser.jpg)
 
@@ -220,15 +220,27 @@ Using our polar divide, we build GarageWorld, the first large-scale garage datas
 ### GarageWorld Dataset
 ![image](assets/datagallery.jpg)
 
-<!--  <section class="section" id="BibTeX">
+ <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
     <h2 class="title">BibTeX</h2>
-    <pre><code>@article{cui2024letsgo,
-        title={LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives},
-        author={Jiadi Cui, Junming Cao, Fuqiang Zhao, Zhipeng He, Yifan Chen, Yuhui Zhong, Lan Xu, Yujiao Shi, Yingliang Zhang, Jingyi Yu},
-        journal={arXiv preprint arXiv:2404.09748},
-        year={2024}
-    }
+    <pre><code>@article{10.1145/3687762,
+        author = {Cui, Jiadi and Cao, Junming and Zhao, Fuqiang and He, Zhipeng and Chen, Yifan and Zhong, Yuhui and Xu, Lan and Shi, Yujiao and Zhang, Yingliang and Yu, Jingyi},
+        title = {LetsGo: Large-Scale Garage Modeling and Rendering via LiDAR-Assisted Gaussian Primitives},
+        year = {2024},
+        issue_date = {December 2024},
+        publisher = {Association for Computing Machinery},
+        address = {New York, NY, USA},
+        volume = {43},
+        number = {6},
+        issn = {0730-0301},
+        url = {https://doi.org/10.1145/3687762},
+        doi = {10.1145/3687762},
+        journal = {ACM Trans. Graph.},
+        month = nov,
+        articleno = {172},
+        numpages = {18},
+        keywords = {neural rendering, large-scale garage modeling, LiDAR scanning, 3D gaussian splatting, garage dataset, level-of-detail rendering}
+        }
 </code></pre>
   </div>
-</section> -->
+</section>
