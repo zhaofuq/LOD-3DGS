@@ -19,7 +19,7 @@ from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
 import uuid
 from tqdm import tqdm
-from utils.image_utils import psnr, warpped_depth
+from utils.image_utils import psnr, warpped_depth, unwarpped_depth
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 try:
@@ -122,7 +122,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         if viewpoint_cam.depth is not None:
             gt_depth = viewpoint_cam.depth.cuda()
-            depth_loss = 2.0 * l2_loss(depth, gt_depth)
+            gt_depth_mask = viewpoint_cam.depth_mask.cuda()
+
+            if iteration > opt.iterations / 3:
+                gt_depth = gt_depth * gt_depth_mask + (1 - gt_depth_mask) *  0.75
+                gt_depth_mask = depth < gt_depth
+
+            depth_loss = 2.0 * l1_loss(depth * gt_depth_mask, gt_depth * gt_depth_mask)
    
         loss = rgb_loss + depth_loss
         loss.backward()
@@ -206,7 +212,7 @@ def training_report(tb_writer, iteration, rgb_loss, depth_loss, l1_loss, elapsed
                         active_sh_degree, max_sh_degree, masks = scene.get_gaussian_parameters(viewpoint.world_view_transform, renderArgs[0].compute_cov3D_python)
                     results = renderFunc(viewpoint, xyz, features, opacity, scales, rotations, active_sh_degree, max_sh_degree, cov3D_precomp = cov3D_precomp, *renderArgs)
                     image = torch.clamp(results["render"], 0.0, 1.0)
-                    depth = results["depth"]
+                    depth = warpped_depth(results["depth"])
                     depth = (depth - depth.min()) / (depth.max() - depth.min())
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     if viewpoint.depth is not None:

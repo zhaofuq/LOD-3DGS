@@ -49,14 +49,16 @@ def loadCam(args, id, cam_info, resolution_scale):
     if cam_info.depth is not None:
         resized_depth_map = PILtoTorch(cam_info.depth.convert("LA"), resolution)
         gt_depth = resized_depth_map[0:1]
+        gt_depth_mask = resized_depth_map[1:2]
     else:
         gt_depth = None
-
+        gt_depth_mask = None
 
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
                   image=gt_image, gt_alpha_mask=loaded_mask,
-                  depth=gt_depth, image_name=cam_info.image_name, uid=id, 
+                  depth=gt_depth, depth_mask=gt_depth_mask,
+                  image_name=cam_info.image_name, uid=id, 
                   cx = cam_info.cx, cy = cam_info.cy,  data_device=args.data_device)
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):
